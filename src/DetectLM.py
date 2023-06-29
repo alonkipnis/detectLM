@@ -93,17 +93,17 @@ class DetectLM(object):
             comments.append(comment)
         return pvals, responses, comments
 
-    def testHC(self, sentences: [str]) -> float:
+    def testHC(self, sentences: list) -> float:
         pvals = self.get_pvals(sentences)[1]
         mt = MultiTest(pvals, stbl=self.HC_stbl)
         mt.hc()[0]
 
-    def testFisher(self, sentences: [str]) -> dict:
+    def testFisher(self, sentences: list) -> dict:
         pvals = self.get_pvals(sentences)[1]
         mt = MultiTest(pvals, stbl=self.HC_stbl)
         return dict(zip(['Fn', 'pvalue'], mt.fisher()))
 
-    def _test_chunked_doc(self, lo_chunks: [str], lo_contexts: [str]) -> (MultiTest, pd.DataFrame):
+    def _test_chunked_doc(self, lo_chunks: list, lo_contexts: list) -> (MultiTest, pd.DataFrame):
         pvals, responses, comments = self.get_pvals(lo_chunks, lo_contexts)
         if self.ignore_first_sentence:
             pvals[0] = np.nan
@@ -118,7 +118,7 @@ class DetectLM(object):
             return None, df
         return MultiTest(df_test.pvalue, stbl=self.HC_stbl), df
 
-    def test_chunked_doc(self, lo_chunks: [str], lo_contexts: [str]) -> dict:
+    def test_chunked_doc(self, lo_chunks: list, lo_contexts: list, dashboard=False) -> dict:
         mt, df = self._test_chunked_doc(lo_chunks, lo_contexts)
         if mt is None:
             hc = np.nan
@@ -128,12 +128,9 @@ class DetectLM(object):
             hc, hct = mt.hc()
             fisher = mt.fisher()
             df['mask'] = df['pvalue'] <= hct
+        if dashboard:
+            mt.hc_dashboard()
         return dict(sentences=df, HC=hc, fisher=fisher[0], fisher_pvalue=fisher[1])
 
-    def test_chunked_doc_hc_dashboard(self, lo_chunks: [str], lo_contexts: [str]) -> pd.DataFrame:
-        mt, df = self._test_chunked_doc(lo_chunks, lo_contexts)
-        hc_rep = mt.hc_dashboard()
-        return hc_rep
-
-    def __call__(self, lo_chunks: [str], lo_contexts: [str]) -> dict:
+    def __call__(self, lo_chunks: list, lo_contexts: list) -> dict:
         return self.test_chunked_doc(lo_chunks, lo_contexts)

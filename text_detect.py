@@ -142,6 +142,9 @@ def main():
     logging.info("Testing parsed document")
     res = detector(chunks['text'], chunks['context'])
 
+    import pdb; pdb.set_trace()
+    dashboard = detector.test_chunked_doc_hc_dashboard(chunks['text'], chunks['context'])
+
     df = res['sentences']
 
     df['tag'] = chunks['tag']
@@ -151,6 +154,7 @@ def main():
 
     output_file = "out.csv"
     df.to_csv(output_file)
+    df['pvalue'].hist
 
     print(df.groupby('tag').response.mean())
     print(df[df['mask']])
@@ -166,7 +170,12 @@ def main():
     print("Precision = ", precision)
     print("recall = ", recall)
     print("F1 = ", 2 * precision*recall / (precision + recall))
-    print()
+    
+    df['pvalue'].hist(bins=np.linspace(0,1,17))
+    plt.title("Hisogram of P-values")
+    plt.savefig("pvalue_hist.png")
+    plt.show()
+
 
 
 if __name__ == '__main__':

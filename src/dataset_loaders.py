@@ -1,4 +1,4 @@
-from datasets import load_dataset, load_from_disk
+from datasets import load_dataset
 from tqdm import tqdm
 
 SEED = 42
