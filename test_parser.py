@@ -1,14 +1,8 @@
-import torch
 import pandas as pd
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from scipy.interpolate import interp1d
 import logging
 import numpy as np
 import argparse
-from src.DetectLM import DetectLM
-from src.PerplexityEvaluator import PerplexityEvaluator
 from src.PrepareSentenceContext import PrepareSentenceContext
-from glob import glob
 import pathlib
 import yaml
 import re

@@ -82,7 +82,6 @@ def get_text_from_wikibio_dataset(shuffle=False, text_field=None):
     return get_dataset(name="potsawee/wiki_bio_gpt3_hallucination", machine_field='gpt3_text',
                        human_field="wiki_bio_text", shuffle=shuffle, text_field=text_field)
 
-
 ## New datasets (22/5/2023)
 def get_text_from_alpaca_gpt4_dataset(shuffle=False, text_field=None):
     return get_dataset(name="polyware-ai/alpaca-gpt4-cleaned", machine_field='output',

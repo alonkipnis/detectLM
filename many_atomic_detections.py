@@ -4,9 +4,10 @@ This is useful for:
  1. Characterizing the null distribution of a model with a specific context policy.
  2. Characterizing the power of the global detector against a mixtures from a specific domain.
 
-"""
-import re
+ Note:
+ The default output folder is "./results", hence make sure that such folder exists before running the script
 
+"""
 import torch
 import pandas as pd
 from tqdm import tqdm
@@ -68,7 +69,7 @@ def iterate_over_texts(dataset, atomic_detector, parser, output_file):
         context_lengths += r['context_lengths']
         names += [name] * len(r['chunk_ids'])
 
-        df = pd.DataFrame({'num': ids, 'length': lengths,
+        df = pd.DataFrame({'num': ids, 'length': lengths, 
                            'response': responses, 'context_length': context_lengths,
                            'name': names})
         logging.info(f"Saving results to {output_file}")

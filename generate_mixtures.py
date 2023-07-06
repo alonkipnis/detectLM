@@ -1,12 +1,11 @@
 import numpy as np
 import argparse
 import json
-from datasets import load_dataset
 from tqdm import tqdm
-from src.SentenceParser import SentenceParser
-from src.dataset_loaders import (get_text_from_wiki_dataset, get_text_from_chatgpt_news_dataset,
-get_text_from_wiki_long_dataset, get_text_from_chatgpt_news_long_dataset)
+from src.dataset_loaders import *
 import spacy
+import logging
+logging.basicConfig(level=logging.INFO)
 
 
 nlp = spacy.load("en_core_web_sm")
@@ -76,18 +75,21 @@ def main():
     n = args.n
     min_no_sents = args.no_sentences
 
-    if data_source == "wiki":
-        print("Processing wiki dataset...")
-        dataset = get_text_from_wiki_dataset()
-    elif data_source == "wiki-long":
-        print("Processing wiki-long dataset...")
-        dataset = get_text_from_wiki_long_dataset()
-    elif data_source == 'news':
-        print("Processing news dataset...")
-        dataset = get_text_from_chatgpt_news_dataset()
-    elif data_source == 'news-long':
-        print("Processing news-long dataset...")
-        dataset = get_text_from_chatgpt_news_long_dataset()
+    if args.i == "wiki":
+        logging.info("Processing wiki dataset...")
+        ds = get_text_from_wiki_dataset(text_field=f'{author}_text', shuffle=shuffle)
+    elif args.i == "wiki-long":
+        logging.info("Processing wiki-long dataset...")
+        ds = get_text_from_wiki_long_dataset(text_field=f'{author}_text', shuffle=shuffle)
+    elif args.i == 'news':
+        logging.info("Processing news dataset...")
+        ds = get_text_from_chatgpt_news_dataset(text_field=f'{author}_text', shuffle=shuffle)
+    elif args.i == 'news-long':
+        logging.info("Processing news-long dataset...")
+        ds = get_text_from_chatgpt_news_long_dataset(text_field=f'{author}_text', shuffle=shuffle)
+    elif args.i == 'abstracts':
+        logging.info("Processing reserch-abstracts dataset...")
+        ds = get_text_from_chatgpt_abstracts_dataset(text_field=f'{author}_text', shuffle=shuffle)
     else:
         print("Unknown data source")
         exit(1)

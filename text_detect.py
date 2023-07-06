@@ -7,10 +7,11 @@ import argparse
 from src.DetectLM import DetectLM
 from src.PerplexityEvaluator import PerplexityEvaluator
 from src.PrepareSentenceContext import PrepareSentenceContext
-from fit_survival_function import fit_per_length_survival_function
+from src.fit_survival_function import fit_per_length_survival_function
 from glob import glob
 import pathlib
 import yaml
+from pathlib import Path
 import re
 
 
@@ -65,6 +66,7 @@ def main():
     parser.add_argument('-i', type=str, help='input text file', default="input file")
     parser.add_argument('-conf', type=str, help='configurations file', default="conf.yml")
     parser.add_argument('--context', action='store_true')
+    parser.add_argument('--dashboard', action='store_true')
     args = parser.parse_args()
 
     with open(args.conf, "r") as stream:
@@ -82,8 +84,7 @@ def main():
     lm_name = params['language-model-name']
 
     logging.info(f"Using null data from {null_data_file} and fitting survival function")
-    logging.info(f"Please verify that null data was obtained with the same context")
-    logging.info(f"policy used in inference.")
+    logging.info(f"Please verify that the null data was obtained with the same context policy used in inference.")
 
     df_null = read_all_csv_files(null_data_file)
 
@@ -92,7 +93,7 @@ def main():
 
     if params['ignore-first-sentence']:
         df_null = df_null[df_null.num > 1]
-        logging.info(f"Null data contains {len(df_null)} records")
+        logging.info(f"Found {len(df_null)} records as null data")
     pval_functions = get_survival_function(df_null, G=params['number-of-interpolation-points'])
 
     logging.info(f"Loading model and detection function...")
@@ -140,19 +141,14 @@ def main():
     chunks = parser(text)
 
     logging.info("Testing parsed document")
-    res = detector(chunks['text'], chunks['context'])
-
-    import pdb; pdb.set_trace()
-    dashboard = detector.test_chunked_doc_hc_dashboard(chunks['text'], chunks['context'])
+    res = detector(chunks['text'], chunks['context'], dashboard=args.dashboard)
 
     df = res['sentences']
-
     df['tag'] = chunks['tag']
     df.loc[df.tag.isna(), 'tag'] = 'not edit'
 
-
-
-    output_file = "out.csv"
+    name = Path(input_file).stem
+    output_file = f"{name}_sentences.csv"
     df.to_csv(output_file)
     df['pvalue'].hist
 
@@ -172,9 +168,9 @@ def main():
     print("F1 = ", 2 * precision*recall / (precision + recall))
     
     df['pvalue'].hist(bins=np.linspace(0,1,17))
-    plt.title("Hisogram of P-values")
-    plt.savefig("pvalue_hist.png")
-    plt.show()
+    #plt.title("Hisogram of P-values")
+    #plt.savefig("pvalue_hist.png")
+    #plt.show()
 
 
 
