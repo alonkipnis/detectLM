@@ -84,7 +84,7 @@ class DetectLM(object):
         comments = []
         for response, length in zip(responses, lengths):
             r = self._test_response(response, length)
-            pvals.append(r['pvalue'])
+            pvals.append(float(r['pvalue']))
             comments.append(r['comment'])
         return pvals, comments
 
@@ -178,8 +178,6 @@ class DetectLM(object):
     def testFisher(self, sentences: list) -> dict:
         pvals = np.array(self.get_pvals(sentences)[1])
         print(pvals)
-        import pdb; pdb.set_trace()
-
         mt = MultiTest(pvals, stbl=self.HC_stbl)
         return dict(zip(['Fn', 'pvalue'], mt.fisher()))
 
