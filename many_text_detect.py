@@ -10,7 +10,7 @@ from src.DetectLM import DetectLM
 from src.PerplexityEvaluator import PerplexityEvaluator
 from src.PrepareSentenceContext import PrepareSentenceContext
 from glob import glob
-from fit_survival_function import fit_per_length_survival_function
+from src.fit_survival_function import fit_per_length_survival_function
 import yaml
 import re
 import json

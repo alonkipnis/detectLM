@@ -44,6 +44,9 @@ class DetectLM(object):
 
     def _test_sentence(self, sentence: str, context=None):
         return self._logperp(sentence, context)
+    
+    def _get_length(self, sentence: str):
+        return len(sentence.split())
 
     def _test_response(self, response: float, length: int):
         """
@@ -55,7 +58,6 @@ class DetectLM(object):
             comment = "OK"
             if length > self.max_len:  # in case length exceeds specifications...
                 if self.length_limit_policy == 'truncate':
-                    sent = truncae_to_max_no_tokens(sent, self.max_len)
                     length = self.max_len
                     comment = f"truncated to {self.max_len} tokens"
                 elif self.length_limit_policy == 'ignore':
@@ -77,24 +79,31 @@ class DetectLM(object):
                         length=length,
                         comment=comment)
 
-    def _get_pvals(self, responses: list) -> tuple:
-        pvals = np.zeros(len(responses))
-        responses = np.zeros(len(responses))
+    def _get_pvals(self, responses: list, lengths: list) -> tuple:
+        pvals = []
         comments = []
-        for response in responses:
-            r = self._test_response(response)
+        for response, length in zip(responses, lengths):
+            r = self._test_response(response, length)
             pvals.append(r['pvalue'])
             comments.append(r['comment'])
         return pvals, comments
 
 
     def _get_responses(self, sentences: list, contexts: list) -> list:
+        """
+        Compute response and length of a text sentence 
+        """
         assert len(sentences) == len(contexts)
 
         responses = []
+        lengths = []
         for sent, ctx in tqdm(zip(sentences, contexts)):
+            length = self._get_length(sent)
+            if self.length_limit_policy == 'truncate':
+                sent = truncae_to_max_no_tokens(sent, self.max_len)
             responses.append(self._test_sentence(sent, ctx))
-        return responses  
+            lengths.append(length)
+        return responses, lengths
 
     def get_pvals(self, sentences: list, contexts: list) -> tuple:
         """
@@ -102,8 +111,8 @@ class DetectLM(object):
         """
         assert len(sentences) == len(contexts)
 
-        responses = self._get_responses(sentences, contexts)
-        pvals, comments = self._get_pvals(responses)
+        responses, lengths = self._get_responses(sentences, contexts)
+        pvals, comments = self._get_pvals(responses, lengths)
         
         return pvals, responses, comments
 
@@ -162,21 +171,25 @@ class DetectLM(object):
     #     return pvals, responses, comments
 
     def testHC(self, sentences: list) -> float:
-        pvals = self.get_pvals(sentences)[1]
+        pvals = np.array(self.get_pvals(sentences)[1])
         mt = MultiTest(pvals, stbl=self.HC_stbl)
         return mt.hc()[0]
 
     def testFisher(self, sentences: list) -> dict:
-        pvals = self.get_pvals(sentences)[1]
+        pvals = np.array(self.get_pvals(sentences)[1])
+        print(pvals)
+        import pdb; pdb.set_trace()
+
         mt = MultiTest(pvals, stbl=self.HC_stbl)
         return dict(zip(['Fn', 'pvalue'], mt.fisher()))
 
-    def _test_chunked_doc(self, lo_chunks: list, lo_contexts: list) -> (MultiTest, pd.DataFrame):
+    def _test_chunked_doc(self, lo_chunks: list, lo_contexts: list) -> tuple:
         pvals, responses, comments = self.get_pvals(lo_chunks, lo_contexts)
         if self.ignore_first_sentence:
             pvals[0] = np.nan
             logging.info('Ignoring the first sentence.')
             comments[0] = "ignored (first sentence)"
+        
         df = pd.DataFrame({'sentence': lo_chunks, 'response': responses, 'pvalue': pvals,
                            'context': lo_contexts, 'comment': comments},
                           index=range(len(lo_chunks)))

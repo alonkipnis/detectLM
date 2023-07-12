@@ -1,7 +1,7 @@
 
 #language-model-name: "gpt2"
 #language-model-name: "EleutherAI/gpt-neo-1.3B"
-language-model-name: "llama-13b"
+#language-model-name: "llama-13b"
 language-model-name: "gpt2-xl"
 ignore-first-sentence: true
 

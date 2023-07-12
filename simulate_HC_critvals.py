@@ -7,10 +7,12 @@ nMonte = 10000
 nn = [20, 50, 100, 200, 300, 500, 1000]
 res = np.zeros((len(nn), nMonte))
 
+STBL = True
+
 for i,n in enumerate(nn):
     for j in tqdm(range(nMonte)):
         uu = np.random.rand(n)
-        mt = MultiTest(uu, stbl=True)
+        mt = MultiTest(uu, stbl=STBL)
         res[i,j] = mt.hc()[0]
 
 def bootstrap_standard_error(xx, alpha, nBS = 1000):
