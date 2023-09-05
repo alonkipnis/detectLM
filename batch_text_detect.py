@@ -1,7 +1,6 @@
 import torch
 import pandas as pd
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from scipy.interpolate import interp1d
 import logging
 import numpy as np
 import argparse
@@ -65,7 +64,7 @@ def mark_edits_remove_tags(chunks, tag="edit"):
 
 def main():
     parser = argparse.ArgumentParser(description='Test document for non-model sentences')
-    parser.add_argument('-i', type=str, help='input text file', default="input file")
+    parser.add_argument('-i', type=str, help='input bacth file')
     parser.add_argument('-o', type=str, help='output file', default="")
     parser.add_argument('-conf', type=str, help='configurations file', default="conf.yml")
     parser.add_argument('--context', action='store_true')
@@ -82,6 +81,7 @@ def main():
         null_data_file = params['context-null-data-file']
     else:
         null_data_file = params['no-context-null-data-file']
+    
     lm_name = params['language-model-name']
 
     logging.info(f"Using null data from {null_data_file} and fitting survival function")
@@ -89,7 +89,7 @@ def main():
 
     input_file = args.i
 
-    if not (input_file in null_data_file):
+    if not (input_file in null_data_file):  # checking for name match
         print(f"Warning: null data file {null_data_file} may not match data file {input_file}.")
         print("Continue anyway? (Y/N)")
         a = input()

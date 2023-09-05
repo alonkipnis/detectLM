@@ -6,9 +6,10 @@ language-model-name: "gpt2-xl"
 ignore-first-sentence: true
 
 number-of-interpolation-points: 43
-min-tokens-per-sentence: 8
+min-tokens-per-sentence: 11
 max-tokens-per-sentence: 50
-hc-type: "non-stbl"
+hc-type: "stbl"
+parser: "spacy"
 
 context-null-data-file: "results/gpt2_previous_sentence_wiki_machine.csv"
 #context-null-data-file: "results/gpt2_previous_sentence_files_machine.csv"

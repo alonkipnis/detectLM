@@ -77,9 +77,9 @@ def iterate_over_texts(dataset, atomic_detector, parser, output_file):
         df.to_csv(output_file)
 
 
-def get_text_data_from_files(path, extension='*.txt'):
-    logging.info(f"Reading text data from {path}...")
-    lo_fns = glob(path + extension)
+def get_text_data_from_files(pattern):
+    logging.info(f"Reading text data based on pattern {pattern}...")
+    lo_fns = glob(pattern)
     for fn in lo_fns:
         logging.info(f"Reading text from {fn}")
         with open(fn, "rt") as f:
@@ -90,28 +90,13 @@ def main():
     parser = argparse.ArgumentParser(description='Apply atomic detector many times to characterize distribution')
     parser.add_argument('-i', type=str, help='database name or file', default="")
     parser.add_argument('-o', type=str, help='output folder', default="./results")
-    parser.add_argument('-model-name', type=str, default='gpt2')
+    parser.add_argument('-model-name', type=str, default='gpt2-xl')
     parser.add_argument('--context', action='store_true')
     parser.add_argument('--human', action='store_true')
     parser.add_argument('--shuffle', action='store_true')
-    parser.add_argument('--describe-datasets', action='store_true')
 
     args = parser.parse_args()
 
-    lo_data_loaders = {'wiki': get_text_from_wiki_dataset,
-                       'wiki-long': get_text_from_wiki_long_dataset,
-                       'news': get_text_from_chatgpt_news_dataset,
-                       'news-long': get_text_from_chatgpt_news_long_dataset
-                       }
-    if args.describe_datasets:
-        for k in lo_data_loaders:
-            for author in ['machine', 'human']:
-                print(f"Dataset {k} with author {author}:")
-                ds = lo_data_loaders[k](text_field=f'{author}_text')
-                print(f"\tSize = {ds.dataset_size}")
-                print(f"\tNum rows = {ds.num_rows}")
-                print(f"\tFeatures = {ds.features}")
-        exit(1)
 
     lm_name = args.model_name
 
@@ -153,7 +138,7 @@ def main():
         logging.info("Processing reserch-abstracts dataset...")
         ds = get_text_from_chatgpt_abstracts_dataset(text_field=f'{author}_text', shuffle=shuffle)
     else:
-        ds = get_text_data_from_files(args.i, extension='*.txt')
+        ds = get_text_data_from_files(args.i)
         dataset_name = 'files'
 
     if "/" in lm_name:

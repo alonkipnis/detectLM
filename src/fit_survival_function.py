@@ -3,9 +3,7 @@ Script to read log-perplexity data of many sentences and characterize the empiri
 We also report the mean log-perplexity as a function of sentence length
 """
 
-import pandas as pd
 from scipy.interpolate import RectBivariateSpline, interp1d
-import logging
 import numpy as np
 
 
@@ -64,7 +62,7 @@ def fit_per_length_survival_function(lengths, xx, G=501, log_space=True):
 
     ll_valid = []
     zz = []
-    for i, l in enumerate(ll):
+    for l in ll:
         xx1 = xx[lengths == l]
         if len(xx1) > 0:
             univariate_survival_func = fit_survival_func(xx1, log_space=log_space)

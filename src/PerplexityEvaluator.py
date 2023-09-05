@@ -25,6 +25,7 @@ class PerplexityEvaluator(object):
             input_ids = torch.concatenate([context_ids['input_ids'], text_ids['input_ids']], axis=1)
             labels = torch.concatenate([torch.ones_like(context_ids['input_ids']) * self.ignore_index,
                                         text_ids['input_ids']], axis=1)
+            print("Warning, need to remove context length when reporting lppx")
         else:
             input_ids = text_ids['input_ids']
             labels = input_ids

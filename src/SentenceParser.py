@@ -1,5 +1,4 @@
 import re
-import spacy
 
 
 class Sentence(object):
@@ -13,9 +12,8 @@ class Sentence(object):
 class Sentences(object):
     def __init__(self, text):
         def iterate(text):
-            ls = [s.strip() for s in re.split(r"(\.[^0-9]|\?|\!)", text)]
-            for i in range(len(ls) // 2):  # split by ".", "?", or "!" and add to sentence
-                yield ls[2 * i] + ls[2 * i + 1]
+            for s in re.split(r"\n", text):
+                yield s
         self.sents = iterate(text)
 
     def __len__(self):

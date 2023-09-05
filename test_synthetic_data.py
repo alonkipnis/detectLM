@@ -5,7 +5,7 @@ import pandas as pd
 
 from src.DetectLM import DetectLM
 from src.fit_survival_function import fit_per_length_survival_function
-
+from src.fit_HC_survival_function import get_HC_survival_function
 
 model_name = "gpt2-xl"
 
@@ -15,20 +15,9 @@ params['ignore-first-sentence'] = True
 params['language-model-name'] = model_name
 params['number-of-interpolation-points'] = 47
 params['max-tokens-per-sentence'] = 50
-params['min-tokens-per-sentence'] = 8
+params['min-tokens-per-sentence'] = 10
 params['hc-type'] = "stbl"
-params['sig-level'] = 0.05
 
-
-crit_vals = pd.read_csv("HC_critvals.csv")
-
-
-
-def get_null_data(params):
-    df_null = pd.read_csv(params['null-data-file'])
-    if params['ignore-first-sentence']: 
-        df_null = df_null[df_null.num > 1]
-    return df_null
 
 def get_survival_function(df, G=101):
     """
@@ -70,64 +59,102 @@ def group_articles_to_minimum_length(df, min_length):
 
 def main():
 
+    HC_survival_func = get_HC_survival_function("HC_null_sim_results.csv")
+
+    output_report_filename = "results/synthetic_data_report_al_001_news.csv"
+    params['sig-level'] = 0.01
+
     #dataset_name = 'wiki-long'
     #min_length = 200
     #eps = 0.1
-    for dataset_name in ['wiki-long', 'news']:
-        ds_machine = pd.read_csv(f"results/{model_name}_no_context_{dataset_name}_machine.csv")
-        ds_human = pd.read_csv(f"results/{model_name}_no_context_{dataset_name}_human.csv")
-        ds_human['human'] = True
-        ds_machine['human'] = False
-        joint_names = ds_machine.merge(ds_human, on='name', how='inner')['name'].tolist()
-        ds_machine = ds_machine[ds_machine['name'].isin(joint_names)]
-        
-        ds_human = ds_human[ds_human['name'].isin(joint_names)]
-        print(f"Total number of shared articles {len(joint_names)}")
-        for eps in [0.1, 0.2]:
-            for min_length in [100, 200]:
-                params['null-data-file'] = f"results/{model_name}_no_context_{dataset_name}_machine.csv"
+    
+    #dataset_name = 'wiki-long'
+    #min_length = 200
+    #eps = 0.1
 
-                df_null = get_null_data(params)
-                pval_functions = get_survival_function(df_null, G=params['number-of-interpolation-points'])
+    nMonte = 10
 
-                #ds_pool = ds_human[ds_human['name'].isin(joint_names)]
-                #ds_sample = ds_human.groupby("name").sample(frac=eps)
-                #ds_mixed = pd.concat([ds_machine[ds_machine['name'].isin(joint_names)], ds_sample])
+    report = []
+    for _ in range(nMonte):
+        for dataset_name in ['news']:
+            ds_machine = pd.read_csv(f"results/{model_name}_no_context_{dataset_name}_machine.csv")
+            ds_null = ds_machine.sample(frac=0.5)
+            ds_machine = ds_machine.drop(index=ds_null.index)
 
-                ds_sample = ds_human.groupby("name").sample(frac=eps)
+            # based on null data for every dataset
+            #pval_functions = get_survival_function(ds_null[ds_null.num > 1], G=params['number-of-interpolation-points'])
+            pval_functions = get_survival_function(ds_null, G=params['number-of-interpolation-points'])
 
-                ds_mixed = pd.concat([ds_machine, ds_sample])
-                print("Mixing rate (appx) = ", ds_mixed.groupby('name')['human'].mean().mean())
+            ds_human = pd.read_csv(f"results/{model_name}_no_context_{dataset_name}_human.csv")
+            ds_human['human'] = True
+            ds_machine['human'] = False
+            # "name" is the article ID:
+            joint_names = ds_machine.merge(ds_human, on='name', how='inner')['name'].unique().tolist()
+            print(f"Total number of shared articles {len(joint_names)}")
 
-                ds_mixed_grouped = group_articles_to_minimum_length(ds_mixed, min_length)
+            ds_machine = ds_machine[ds_machine['name'].isin(joint_names)]        
+            ds_human = ds_human[ds_human['name'].isin(joint_names)]
+            
+            lengths_machine = ds_machine.groupby('name')['num'].count().reset_index().rename(columns={'num':'machine_doc_length'})
+            lengths_human = ds_human.groupby('name')['num'].count().reset_index().rename(columns={'num':'human_doc_length'})
+
+            ds_pool =  ds_human.merge(lengths_machine, on='name', how='inner').merge(lengths_human, on='name', how='inner')
+            min_length = 5
+            ds_pool = ds_pool[(ds_pool['human_doc_length'] >= min_length) &  (ds_pool['machine_doc_length'] >= min_length)]
+            print(f"Size of sentences to sample from is {len(ds_pool)}")
+
+            for eps in [0, .1, .2]: # [0, 0.14, 0.35]:
+                for min_length in [50, 100, 200]:
+                    
+                    #ds_sample = ds_human.groupby("name").sample(frac=eps)
+                    ds_sample = pd.DataFrame()
+                    for c in ds_pool.groupby('name'): # "name" is the article ID
+                        k = int(np.ceil(c[1]['machine_doc_length'].values[0] * eps))
+                        ds_sample = pd.concat([ds_sample, c[1].sample(n=k)])
+
+                    ds_mixed = pd.concat([ds_machine, ds_sample])
+                    ds_mixed_grouped = group_articles_to_minimum_length(ds_mixed, min_length)
 
 
-                detectlm = DetectLM(lambda x: 0,
-                                    pval_functions,
-                                    min_len=params['min-tokens-per-sentence'],
-                                    max_len=params['max-tokens-per-sentence'],
-                                    HC_type=params['hc-type'],
-                                    ignore_first_sentence=params['ignore-first-sentence']
-                                    )
-                stbl = True if params['hc-type']=='stbl' else False
+                    detectlm = DetectLM(lambda x: 0, # we use pre-computed logperplexities
+                                        pval_functions,
+                                        min_len=params['min-tokens-per-sentence'],
+                                        max_len=params['max-tokens-per-sentence'],
+                                        HC_type=params['hc-type'],
+                                        ignore_first_sentence=params['ignore-first-sentence']
+                                        )
+                    stbl = True if params['hc-type']=='stbl' else False
 
-                min_no_sentences = 10
+                    min_no_sentences = 10
 
-                results = []
-                for c in tqdm(ds_mixed_grouped.groupby('new_name')):
-                    responses = c[1]['response']
-                    lengths = c[1]['length']
-                    if len(responses) > min_no_sentences:
-                        pvals, _ = detectlm._get_pvals(responses, lengths)
-                        pvals = np.vstack(pvals).squeeze()
-                        mt = MultiTest(pvals, stbl=stbl)
-                        hc = mt.hc()[0]
-                        results.append(dict(id=c[0], HC=hc))
+                    
+                    results = []
+                    for c in tqdm(ds_mixed_grouped.groupby('new_name')):
+                        responses = c[1]['response']
+                        lengths = c[1]['length']
+                        mix_rate = np.mean(c[1]['human'])
+                        if len(responses) > min_no_sentences:
+                            pvals, _ = detectlm._get_pvals(responses, lengths)
+                            pvals = np.vstack(pvals).squeeze()
+                            mt = MultiTest(pvals, stbl=stbl)  # HC test
+                            hc = mt.hc()[0]                   # HC test
+                            results.append(dict(id=c[0], HC=hc, len=len(responses), mix_rate=mix_rate))
 
-                t0 = crit_vals[(crit_vals.n == min_length) & (crit_vals.alpha == params['sig-level'])].q_alpha.values[0]
-                acc = np.mean(pd.DataFrame.from_dict(results)['HC'] > t0)
+                    #t0 = crit_vals[(crit_vals.n == min_length) & (crit_vals.alpha == params['sig-level'])].q_alpha.values[0]
+                    HC_pvals = np.vstack([HC_survival_func(c['len'], c['HC']) for c in results])[:,0]
+                    acc = np.mean(HC_pvals <= params['sig-level'])
 
-                print(f"Model={model_name}, dataset={dataset_name}, epsilon={eps}, length={min_length} --> detection rate {acc}")
+                    avg_len = np.mean(np.vstack([c['len'] for c in results])).squeeze()
+                    
+                    avg_mix_rate = np.mean([c['mix_rate'] for c in results])
+                    print("Avg. Mixing rate = ", avg_mix_rate)
+                    report.append(dict(model=model_name, dataset=dataset_name, epsilon=eps, mix_rate=avg_mix_rate,
+                                min_length=min_length, 
+                                avg_length = avg_len,
+                                detection_rate=acc))
+                    print(f"Model={model_name}, dataset={dataset_name}, epsilon={eps}, length={min_length} --> detection rate {acc}")
+
+                    pd.DataFrame(report).to_csv(output_report_filename)
 
 
 if __name__ == '__main__':

@@ -117,63 +117,10 @@ class DetectLM(object):
         return pvals, responses, comments
 
 
-
-    # def _test_sent(self, sent: str, context=None):
-    #     """
-    #     Returns:
-    #       response:  sentence log-perplexity
-    #       pval:      P-value of atomic log-perplexity test
-    #     """
-    #     length = len(sent.split())  # This is the approximate length as the true length is determined by the tokenizer
-    #     if self.min_len <= length:
-    #         comment = "OK"
-    #         if length > self.max_len:  # in case length exceeds specifications...
-    #             if self.length_limit_policy == 'truncate':
-    #                 sent = truncae_to_max_no_tokens(sent, self.max_len)
-    #                 length = self.max_len
-    #                 comment = f"truncated to {self.max_len} tokens"
-    #             elif self.length_limit_policy == 'ignore':
-    #                 comment = "ignored (above maximum limit)"
-    #                 return np.nan, np.nan, comment
-    #             elif self.length_limit_policy == 'max_available':
-    #                 comment = "exceeding length limit; resorted to max-available length"
-    #                 length = self.max_len
-    #         response = self._logperp(sent, context)
-    #         pval = self.survival_function_per_length(length, float(response))
-    #         assert pval >= 0, "Negative P-value. Something is wrong."
-    #         return dict(response=response, 
-    #                     pvalue=pval, 
-    #                     length=length,
-    #                     comment=comment)
-    #     else:
-    #         comment = "ignored (below minimal length)"
-    #         if len(sent) > 100:
-    #             logging.warning(f"Sentence is too long ({sent})")
-    #         return dict(response=np.nan, 
-    #                     pvalue=np.nan, 
-    #                     length=np.nan,
-    #                     comment=comment)
-
-    # def get_pvals(self, sentences: list, contexts: list) -> tuple:
-    #     """
-    #     Log-perplexity test of every (sentence, context) pair
-    #     """
-    #     assert len(sentences) == len(contexts)
-
-    #     pvals = np.zeros(len(sentences))
-    #     responses = np.zeros(len(sentences))
-    #     comments = []
-    #     for i, (sent, ctx) in tqdm(enumerate(zip(sentences, contexts))):
-    #         r = self._test_sent(sent, ctx)
-    #         pvals[i] = r['pvalue']
-    #         responses[i] = r['response']
-    #         comments.append(r['comment'])
-    #     return pvals, responses, comments
-
     def testHC(self, sentences: list) -> float:
         pvals = np.array(self.get_pvals(sentences)[1])
         mt = MultiTest(pvals, stbl=self.HC_stbl)
-        return mt.hc()[0]
+        return mt.hc(gamma=0.4)[0]
 
     def testFisher(self, sentences: list) -> dict:
         pvals = np.array(self.get_pvals(sentences)[1])

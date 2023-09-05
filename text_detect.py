@@ -1,3 +1,5 @@
+# iterate over many txt files
+
 import torch
 import pandas as pd
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -8,6 +10,7 @@ from src.DetectLM import DetectLM
 from src.PerplexityEvaluator import PerplexityEvaluator
 from src.PrepareSentenceContext import PrepareSentenceContext
 from src.fit_survival_function import fit_per_length_survival_function
+from src.fit_HC_survival_function import get_HC_survival_function
 from glob import glob
 import pathlib
 import yaml
@@ -62,11 +65,16 @@ def mark_edits_remove_tags(chunks, tag="edit"):
     return chunks, edits
 
 def main():
-    parser = argparse.ArgumentParser(description='Test document for non-model sentences')
-    parser.add_argument('-i', type=str, help='input text file', default="input file")
+    parser = argparse.ArgumentParser(description="Apply detector of non-GLM text to a text file or several text files (based on an input pattern)")
+    parser.add_argument('-i', type=str, help='input regex', default="Data/ChatGPT/*.txt")
+    parser.add_argument('-o', type=str, help='output folder', default="")
+    parser.add_argument('-result-file', type=str, help='where to write results', default="out.csv")
+    
     parser.add_argument('-conf', type=str, help='configurations file', default="conf.yml")
     parser.add_argument('--context', action='store_true')
     parser.add_argument('--dashboard', action='store_true')
+    parser.add_argument('--leave-out', action='store_true')
+    
     args = parser.parse_args()
 
     with open(args.conf, "r") as stream:
@@ -83,24 +91,25 @@ def main():
         null_data_file = params['no-context-null-data-file']
     lm_name = params['language-model-name']
 
-    logging.info(f"Using null data from {null_data_file} and fitting survival function")
-    logging.info(f"Please verify that the null data was obtained with the same context policy used in inference.")
-
-    df_null = read_all_csv_files(null_data_file)
+    if not args.leave_out:
+        logging.info(f"Using null data from {null_data_file} and fitting survival function")
+        logging.info(f"Please verify that the null data was obtained with the same context policy used in inference.")
+        df_null = read_all_csv_files(null_data_file)
+        if params['ignore-first-sentence']:
+            df_null = df_null[df_null.num > 1]
+        logging.info(f"Found {len(df_null)} records as null data")
+        pval_functions = get_survival_function(df_null, G=params['number-of-interpolation-points'])
 
     max_tokens_per_sentence = params['max-tokens-per-sentence']
     min_tokens_per_sentence = params['min-tokens-per-sentence']
 
-    if params['ignore-first-sentence']:
-        df_null = df_null[df_null.num > 1]
-        logging.info(f"Found {len(df_null)} records as null data")
-    pval_functions = get_survival_function(df_null, G=params['number-of-interpolation-points'])
-
-    logging.info(f"Loading model and detection function...")
-
-    logging.debug(f"Loading Language model {lm_name}...")
+    
+    logging.info(f"Loading Language model {lm_name}...")
     tokenizer = AutoTokenizer.from_pretrained(lm_name)
     model = AutoModelForCausalLM.from_pretrained(lm_name)
+    logging.info(f"Loading LPPT evaluator...")
+    sentence_detector = PerplexityEvaluator(model, tokenizer)
+
 
     if torch.backends.mps.is_available():
         device = 'mps'
@@ -115,63 +124,111 @@ def main():
     else:
         context_policy = None
 
-    sentence_detector = PerplexityEvaluator(model, tokenizer)
-    logging.debug("Initializing detector...")
-    detector = DetectLM(sentence_detector, pval_functions,
-                        min_len=min_tokens_per_sentence,
-                        max_len=max_tokens_per_sentence,
-                        length_limit_policy='truncate',
-                        HC_type=params['hc-type'],
-                        ignore_first_sentence=
-                        True if context_policy == 'previous_sentence' else False
-                        )
-
-    input_file = args.i
-    logging.info(f"Parsing document {input_file}...")
-
-    if pathlib.Path(input_file).suffix == '.txt':
-        engine = 'spacy'
-        with open(input_file, 'rt') as f:
-            text = f.read()
-    else:
-        logging.error("Unknown file extension")
-        exit(1)
-
-    parser = PrepareSentenceContext(engine=engine, context_policy=context_policy)
-    chunks = parser(text)
-
-    logging.info("Testing parsed document")
-    res = detector(chunks['text'], chunks['context'], dashboard=args.dashboard)
-
-    df = res['sentences']
-    df['tag'] = chunks['tag']
-    df.loc[df.tag.isna(), 'tag'] = 'not edit'
-
-    name = Path(input_file).stem
-    output_file = f"{name}_sentences.csv"
-    df.to_csv(output_file)
-    df['pvalue'].hist
-
-    print(df.groupby('tag').response.mean())
-    print(df[df['mask']])
-    len_valid = len(df[~df.pvalue.isna()])
-    print("Length valid: ", len_valid)
-    print(f"Num of Edits (rate) = {np.sum(df['tag'] == '<edit>')} ({np.mean(df['tag'] == '<edit>')})")
-    print(f"HC = {res['HC']}")
-    print(f"Fisher = {res['fisher']}")
-    print(f"Fisher (chisquared pvalue) = {res['fisher_pvalue']}")
-    dfr = df[df['mask']]
-    precision = np.mean(dfr['tag'] == '<edit>')
-    recall = np.sum((df['mask'] == True) & (df['tag'] == '<edit>')) / np.sum(df['tag'] == '<edit>')
-    print("Precision = ", precision)
-    print("recall = ", recall)
-    print("F1 = ", 2 * precision*recall / (precision + recall))
     
-    df['pvalue'].hist(bins=np.linspace(0,1,17))
-    #plt.title("Hisogram of P-values")
-    #plt.savefig("pvalue_hist.png")
-    #plt.show()
+    if not args.leave_out:
+        
+        logging.debug("Initializing detector...")
+        detector = DetectLM(sentence_detector, pval_functions,
+                            min_len=min_tokens_per_sentence,
+                            max_len=max_tokens_per_sentence,
+                            length_limit_policy='truncate',
+                            HC_type=params['hc-type'],
+                            ignore_first_sentence=
+                            True if context_policy == 'previous_sentence' else False
+                            )
 
+    HC_pval_func = get_HC_survival_function(HC_null_sim_file="HC_null_sim_results.csv")
+    pattern = args.i
+    output_folder = args.o
+
+    results = {}
+
+    parser = PrepareSentenceContext(sentence_parser=params['parser'],
+                                     context_policy=context_policy)
+
+
+    lo_fns = glob(pattern)
+    print("Iterating over the lits of files: ", lo_fns)
+    for input_file in lo_fns:
+        logging.info(f"Parsing document {input_file}...")
+
+        if args.leave_out:
+            logging.info(f"Reading null data from {null_data_file}...")
+            df_null0 = read_all_csv_files(null_data_file)
+            logging.info(f"Removing null entries associated with {input_file}...")
+            logging.info(f"Reading null data from {null_data_file}...")
+            df_null0[:, 'title'] = df_null0['name'].str.extract(r"([A-Za-z \(\)]+)(?:mix| mix)?.txt")
+            curr_name = re.findall(r"([A-Za-z \(\)]+)(?:mix| mix)?.txt", input_file)[0]
+            df_null = df_null0[df_null0['title'] != curr_name]
+            logging.info(f"Removed {len(df_null0) - len(df_null)} entries from null data")
+            if params['ignore-first-sentence']:
+                df_null = df_null[df_null.num > 1]
+            logging.info(f"Fitting LPPT P-value function...")
+            pval_functions = get_survival_function(df_null, G=params['number-of-interpolation-points'])
+
+            logging.debug("Initializing detector...")
+            detector = DetectLM(sentence_detector, pval_functions,
+                            min_len=min_tokens_per_sentence,
+                            max_len=max_tokens_per_sentence,
+                            length_limit_policy='truncate',
+                            HC_type=params['hc-type'],
+                            ignore_first_sentence=
+                            True if context_policy == 'previous_sentence' else False
+                            )
+
+
+        if pathlib.Path(input_file).suffix == '.txt':
+            with open(input_file, 'rt') as f:
+                text = f.read()
+        else:
+            logging.error("Unknown file extension")
+            exit(1)
+
+        chunks = parser(text)
+
+        logging.info("Testing parsed document")
+        res = detector(chunks['text'], chunks['context'], dashboard=args.dashboard)
+
+        df = res['sentences']
+        df['tag'] = chunks['tag']
+        df.loc[df.tag.isna(), 'tag'] = 'not edit'
+
+        name = Path(input_file).stem
+        output_file = f"{output_folder}{name}_sentences.csv"
+        df.to_csv(output_file)
+        df['pvalue'].hist
+
+        print(df.groupby('tag').response.mean())
+        print(df[df['mask']])
+        len_valid = len(df[~df.pvalue.isna()])
+        print("Length valid: ", len_valid)
+        edit_rate = np.mean(df['tag'] == '<edit>')
+        print(f"Num of Edits (rate) = {np.sum(df['tag'] == '<edit>')} ({edit_rate})")
+        HC = res['HC']
+        print(f"HC = {res['HC']}")
+        HC_pvalue = HC_pval_func(len_valid, HC)[0][0]
+        print(f"Pvalue (HC) = {HC_pvalue}")
+        print(f"Fisher = {res['fisher']}")
+        print(f"Fisher (chisquared pvalue) = {res['fisher_pvalue']}")
+        dfr = df[df['mask']]
+        precision = np.mean(dfr['tag'] == '<edit>')
+        recall = np.sum((df['mask'] == True) & (df['tag'] == '<edit>')) / np.sum(df['tag'] == '<edit>')
+        print("Precision = ", precision)
+        print("recall = ", recall)
+        print("F1 = ", 2 * precision*recall / (precision + recall))
+
+        results[input_file] = dict(length=len_valid, edit_rate=edit_rate, HC=res['HC'],
+                                HC_pvalue=HC_pvalue, precision=precision, recall=recall)
+        
+        #plt.title("Hisogram of P-values")
+        #plt.savefig("pvalue_hist.png")
+        #plt.show()
+
+    results_filename = args.result_file
+    print(results)
+    print(f"Saving results to {results_filename}")
+    dfr = pd.DataFrame.from_dict(results).T
+    dfr.to_csv(results_filename)
 
 
 if __name__ == '__main__':
