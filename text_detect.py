@@ -92,12 +92,12 @@ def main():
     lm_name = params['language-model-name']
 
     if not args.leave_out:
-        logging.info(f"Using null data from {null_data_file} and fitting survival function")
-        logging.info(f"Please verify that the null data was obtained with the same context policy used in inference.")
+        logging.info(f"Fitting null log-loss survival function using data from {null_data_file}.")
+        logging.info(f"Please verify that the data was obtained under the same context policy.")
         df_null = read_all_csv_files(null_data_file)
         if params['ignore-first-sentence']:
             df_null = df_null[df_null.num > 1]
-        logging.info(f"Found {len(df_null)} records as null data")
+        logging.info(f"Found {len(df_null)} log-loss values of text atoms in {null_data_file}.")
         pval_functions = get_survival_function(df_null, G=params['number-of-interpolation-points'])
 
     max_tokens_per_sentence = params['max-tokens-per-sentence']
@@ -186,15 +186,18 @@ def main():
 
         chunks = parser(text)
 
+        #logging.basicConfig(level=logging.DEBUG)
         logging.info("Testing parsed document")
         res = detector(chunks['text'], chunks['context'], dashboard=args.dashboard)
+        #logging.basicConfig(level=logging.INFO)
 
         df = res['sentences']
         df['tag'] = chunks['tag']
-        df.loc[df.tag.isna(), 'tag'] = 'not edit'
+        df.loc[df.tag.isna(), 'tag'] = 'no edits'
 
         name = Path(input_file).stem
         output_file = f"{output_folder}{name}_sentences.csv"
+        print("Saving sentences to ", output_file)
         df.to_csv(output_file)
         df['pvalue'].hist
 

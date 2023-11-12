@@ -11,7 +11,7 @@ def truncae_to_max_no_tokens(text, max_no_tokens):
 
 class DetectLM(object):
     def __init__(self, sentence_detection_function, survival_function_per_length,
-                 min_len=1, max_len=100, HC_type="stbl",
+                 min_len=4, max_len=100, HC_type="stbl",
                  length_limit_policy='truncate', ignore_first_sentence=False):
         """
         Test for the presence of sentences of irregular origin as reflected by the
@@ -101,7 +101,11 @@ class DetectLM(object):
             length = self._get_length(sent)
             if self.length_limit_policy == 'truncate':
                 sent = truncae_to_max_no_tokens(sent, self.max_len)
-            responses.append(self._test_sentence(sent, ctx))
+            logging.debug(f"Testing sentence: {sent} | context: {ctx}")
+            try:
+                responses.append(self._test_sentence(sent, ctx))
+            except:
+                import pdb; pdb.set_trace()
             lengths.append(length)
         return responses, lengths
 
