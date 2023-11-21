@@ -1,6 +1,6 @@
 """
-Script to read log-perplexity data of many sentences and characterize the empirical distribution.
-We also report the mean log-perplexity as a function of sentence length
+Script to read log-loss data of many sentences and characterize the empirical distribution.
+We also report the mean log-loss as a function of sentence length
 """
 
 from scipy.interpolate import RectBivariateSpline, interp1d
