@@ -21,7 +21,8 @@ from src.dataset_loaders import (get_text_from_chatgpt_news_dataset,
                                  get_text_from_wiki_dataset,
                                  get_text_from_wiki_long_dataset,
                                  get_text_from_chatgpt_news_long_dataset,
-                                 get_text_from_chatgpt_abstracts_dataset)
+                                 get_text_from_chatgpt_abstracts_dataset,
+                                 get_text_from_wikibio_dataset)
 from glob import glob
 
 logging.basicConfig(level=logging.INFO)
@@ -137,6 +138,9 @@ def main():
     elif args.i == 'abstracts':
         logging.info("Processing reserch-abstracts dataset...")
         ds = get_text_from_chatgpt_abstracts_dataset(text_field=f'{author}_text', shuffle=shuffle)
+    elif args.i == 'wikibio':
+        logging.info("Processing wikibio dataset...")
+        ds = get_text_from_wikibio_dataset(text_field=f'{author}_text', shuffle=shuffle)
     else:
         ds = get_text_data_from_files(args.i)
         dataset_name = 'files'

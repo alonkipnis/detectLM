@@ -14,10 +14,11 @@ parser: "spacy"
 context-null-data-file: "results/gpt2_previous_sentence_wiki_machine.csv"
 #context-null-data-file: "results/gpt2_previous_sentence_files_machine.csv"
 
-no-context-null-data-file: "results/gpt2-xl_no_context_files_machine.csv"
+#no-context-null-data-file: "results/gpt2-xl_no_context_wikibio_machine.csv"
+#no-context-null-data-file: "results/gpt2-xl_no_context_files_machine.csv"
 #no-context-null-data-file: "results/gpt2-xl_no_context_wiki-long_machine.csv"
 #no-context-null-data-file: "results/gpt2-xl_no_context_abstracts_machine.csv"
-#no-context-null-data-file: "results/gpt2-xl_no_context_news_machine.csv"
+no-context-null-data-file: "results/gpt2-xl_no_context_news_machine.csv"
 
 #no-context-null-data-file: "results/gpt2_no_context_news_machine.csv"
 #no-context-null-data-file: "results/gpt2_no_context_wiki-long_machine.csv"

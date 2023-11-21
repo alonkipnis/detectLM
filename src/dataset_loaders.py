@@ -1,12 +1,11 @@
 from datasets import load_dataset
-from tqdm import tqdm
 
 SEED = 42
 
 
 def get_dataset(name: str, machine_field, human_field, iterable=False,
-                text_field=None, shuffle=False):
-    dataset = load_dataset(name)['train']
+                text_field=None, shuffle=False, main_split='train'):
+    dataset = load_dataset(name)[main_split]
     ds = dataset.rename_columns({human_field: 'human_text', machine_field: 'machine_text'})
     if 'id' not in ds.features:
         ids = list(range(len(ds)))
@@ -80,7 +79,7 @@ def get_text_from_chatgpt_news_dataset(shuffle=False, text_field=None):
 
 def get_text_from_wikibio_dataset(shuffle=False, text_field=None):
     return get_dataset(name="potsawee/wiki_bio_gpt3_hallucination", machine_field='gpt3_text',
-                       human_field="wiki_bio_text", shuffle=shuffle, text_field=text_field)
+                       human_field="wiki_bio_text", shuffle=shuffle, text_field=text_field, main_split='evaluation')
 
 ## New datasets (22/5/2023)
 def get_text_from_alpaca_gpt4_dataset(shuffle=False, text_field=None):
