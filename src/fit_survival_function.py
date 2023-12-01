@@ -2,7 +2,6 @@
 Script to read log-loss data of many sentences and characterize the empirical distribution.
 We also report the mean log-loss as a function of sentence length
 """
-
 from scipy.interpolate import RectBivariateSpline, interp1d
 import numpy as np
 
@@ -39,8 +38,9 @@ def fit_survival_func(xx, log_space=True):
 
 def fit_per_length_survival_function(lengths, xx, G=501, log_space=True):
     """
+    Returns a survival function for every sentence length in tokens.
     Use 2D interpolation over the empirical survival function of the pairs (length, x)
-
+    
     Args:
         :lengths:, :xx:, 1-D arrays
         :G:  number of grid points to use in the interpolation in the xx dimension

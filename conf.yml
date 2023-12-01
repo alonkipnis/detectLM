@@ -6,7 +6,7 @@ language-model-name: "gpt2-xl"
 ignore-first-sentence: true
 
 number-of-interpolation-points: 43
-min-tokens-per-sentence: 11
+min-tokens-per-sentence: 10
 max-tokens-per-sentence: 50
 hc-type: "stbl"
 parser: "spacy"
@@ -16,9 +16,11 @@ context-null-data-file: "results/gpt2_previous_sentence_wiki_machine.csv"
 
 #no-context-null-data-file: "results/gpt2-xl_no_context_wikibio_machine.csv"
 #no-context-null-data-file: "results/gpt2-xl_no_context_files_machine.csv"
+#no-context-null-data-file: "results/gpt2-xl_no_context_files_machine_1.csv"
+no-context-null-data-file: "results/gpt2-xl_no_context_files_machine_truncated.csv"
 #no-context-null-data-file: "results/gpt2-xl_no_context_wiki-long_machine.csv"
 #no-context-null-data-file: "results/gpt2-xl_no_context_abstracts_machine.csv"
-no-context-null-data-file: "results/gpt2-xl_no_context_news_machine.csv"
+#no-context-null-data-file: "results/gpt2-xl_no_context_news_machine.csv"
 
 #no-context-null-data-file: "results/gpt2_no_context_news_machine.csv"
 #no-context-null-data-file: "results/gpt2_no_context_wiki-long_machine.csv"

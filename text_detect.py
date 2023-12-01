@@ -10,7 +10,7 @@ from src.DetectLM import DetectLM
 from src.PerplexityEvaluator import PerplexityEvaluator
 from src.PrepareSentenceContext import PrepareSentenceContext
 from src.fit_survival_function import fit_per_length_survival_function
-from src.fit_HC_survival_function import get_HC_survival_function
+from src.HC_survival_function import get_HC_survival_function
 from glob import glob
 import pathlib
 import yaml
@@ -31,11 +31,12 @@ def read_all_csv_files(pattern):
 
 def get_survival_function(df, G=101):
     """
-    One survival function for every sentence length in tokens
+    Returns a survival function for every sentence length in tokens.
 
     Args:
     :df:  data frame with columns 'response' and 'length'
-
+    :G:   number of interpolation points
+    
     Return:
         bivariate function (length, responce) -> (0,1)
 
@@ -67,7 +68,7 @@ def mark_edits_remove_tags(chunks, tag="edit"):
 def main():
     parser = argparse.ArgumentParser(description="Apply detector of non-GLM text to a text file or several text files (based on an input pattern)")
     parser.add_argument('-i', type=str, help='input regex', default="Data/ChatGPT/*.txt")
-    parser.add_argument('-o', type=str, help='output folder', default="")
+    parser.add_argument('-o', type=str, help='output folder', default="results/")
     parser.add_argument('-result-file', type=str, help='where to write results', default="out.csv")
     
     parser.add_argument('-conf', type=str, help='configurations file', default="conf.yml")
@@ -103,7 +104,6 @@ def main():
     max_tokens_per_sentence = params['max-tokens-per-sentence']
     min_tokens_per_sentence = params['min-tokens-per-sentence']
 
-    
     logging.info(f"Loading Language model {lm_name}...")
     tokenizer = AutoTokenizer.from_pretrained(lm_name)
     model = AutoModelForCausalLM.from_pretrained(lm_name)
@@ -157,8 +157,8 @@ def main():
             df_null0 = read_all_csv_files(null_data_file)
             logging.info(f"Removing null entries associated with {input_file}...")
             logging.info(f"Reading null data from {null_data_file}...")
-            df_null0[:, 'title'] = df_null0['name'].str.extract(r"([A-Za-z \(\)]+)(?:mix| mix)?.txt")
-            curr_name = re.findall(r"([A-Za-z \(\)]+)(?:mix| mix)?.txt", input_file)[0]
+            df_null0.loc[:, 'title'] = df_null0['name'].str.extract(r"([A-Za-z \(\)]+)(?:mix| mix)?.txt")
+            curr_name = re.findall(r"([A-Za-z \(\)]+)(?:mix| mix|_edited)?.txt", input_file)[0]
             df_null = df_null0[df_null0['title'] != curr_name]
             logging.info(f"Removed {len(df_null0) - len(df_null)} entries from null data")
             if params['ignore-first-sentence']:
@@ -184,12 +184,12 @@ def main():
             logging.error("Unknown file extension")
             exit(1)
 
+        logging.basicConfig(level=logging.DEBUG)
+        logging.debug("Parsing document...")
         chunks = parser(text)
-
-        #logging.basicConfig(level=logging.DEBUG)
         logging.info("Testing parsed document")
         res = detector(chunks['text'], chunks['context'], dashboard=args.dashboard)
-        #logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.INFO)
 
         df = res['sentences']
         df['tag'] = chunks['tag']

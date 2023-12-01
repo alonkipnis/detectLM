@@ -50,9 +50,13 @@ class DetectLM(object):
 
     def _test_response(self, response: float, length: int):
         """
+        Args:
+            response:  sentence log-perplexity
+            length:    sentence length in tokens
+
         Returns:
-          response:  sentence log-perplexity
-          pval:      P-value of atomic log-perplexity test
+          pvals:    P-value of the log-perplexity of the sentence
+          comments: comment on the P-value
         """
         if self.min_len <= length:
             comment = "OK"
@@ -98,13 +102,18 @@ class DetectLM(object):
         responses = []
         lengths = []
         for sent, ctx in tqdm(zip(sentences, contexts)):
+            logging.debug(f"Testing sentence: {sent} | context: {ctx}")
             length = self._get_length(sent)
             if self.length_limit_policy == 'truncate':
                 sent = truncae_to_max_no_tokens(sent, self.max_len)
-            logging.debug(f"Testing sentence: {sent} | context: {ctx}")
+            if length == 1:
+                logging.warning(f"Sentence {sent} is too short. Skipping.")
+                responses.append(np.nan)
+                continue
             try:
                 responses.append(self._test_sentence(sent, ctx))
             except:
+                # something unusual happened...
                 import pdb; pdb.set_trace()
             lengths.append(length)
         return responses, lengths

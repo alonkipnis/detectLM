@@ -10,7 +10,7 @@ from src.DetectLM import DetectLM
 from src.PerplexityEvaluator import PerplexityEvaluator
 from src.PrepareSentenceContext import PrepareSentenceContext
 from src.fit_survival_function import fit_per_length_survival_function
-from src.fit_HC_survival_function import get_HC_survival_function
+from src.HC_survival_function import get_HC_survival_function
 from glob import glob
 import pathlib
 import yaml
@@ -66,7 +66,7 @@ def mark_edits_remove_tags(chunks, tag="edit"):
 def main():
     parser = argparse.ArgumentParser(description="Apply detector of non-GLM text to a text file or several text files (based on an input pattern)")
     parser.add_argument('-i', type=str, help='input regex', default="Data/ChatGPT/*.txt")
-    parser.add_argument('-o', type=str, help='output folder', default="")
+    parser.add_argument('-o', type=str, help='output folder', default="results/")
     parser.add_argument('-result-file', type=str, help='where to write results', default="out.csv")
     
     parser.add_argument('-conf', type=str, help='configurations file', default="conf.yml")
@@ -123,7 +123,6 @@ def main():
     else:
         context_policy = None
 
-    
     if not args.leave_out:
         
         logging.debug("Initializing detector...")
@@ -136,12 +135,8 @@ def main():
                             True if context_policy == 'previous_sentence' else False
                             )
 
-    HC_pval_func = get_HC_survival_function(HC_null_sim_file="HC_null_sim_results.csv")
     pattern = args.i
     output_folder = args.o
-
-    results = {}
-
     parser = PrepareSentenceContext(sentence_parser=params['parser'],
                                      context_policy=context_policy)
 

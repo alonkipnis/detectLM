@@ -40,9 +40,6 @@ def main():
 
     print("context = ", args.context)
 
-    max_tokens_per_sentence = params['max-tokens-per-sentence']
-    min_tokens_per_sentence = params['min-tokens-per-sentence']
-
 
     if args.context:
         context_policy = 'previous_sentence'
@@ -58,7 +55,7 @@ def main():
         logging.error("Unknown file extension")
         exit(1)
 
-    parser = PrepareSentenceContext(engine=engine, context_policy=context_policy)
+    parser = PrepareSentenceContext(sentence_parser=engine, context_policy=context_policy)
     chunks = parser(text)
     df = pd.DataFrame(dict(sentence=chunks['text'],
                            context=chunks['context'],
@@ -67,7 +64,6 @@ def main():
     df.loc[df.tag.isna(), 'tag'] = 'not edit'
 
     print(f"Edit rate = {np.mean(df['tag'] == '<edit>')}")
-
     print(df[df['tag'] != 'not edit'])
 
 
