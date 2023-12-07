@@ -56,45 +56,49 @@ context policy. It is also a good idea to take into account the length of the se
 have smaller perplexity.    
 
 ## Scripts
-- ``test_sentence_detector.py``. Computes the log perplexity of an input text.
 - ``many_atomic_detections.py``. Evaluate the log perplexity of many sentences given a specific policy. This script can 
 be useful to characterize P-value function or to analyze the power of the pipeline against a mixture from a specific 
 domain.
-- ``test_text_detect.py``. Apply the full testing pipeline to an input text file. This scripts loads "null data" and fit 
-a function to evaluate P-values. To obtain reliable detection, the null data must be obtained under the same context
-policy of the test. 
-- ``fit_pvalue_function.py``. Report on the histogram of simulated null log-perplexities and the dependency of the 
-log-perplexity in the sentence's length. 
+- ``text_detect.py``. Apply the full testing pipeline to an input text file. This scripts loads "null data" and fit a function to evaluate P-values. To obtain reliable detection, the null data must be obtained under the same context policy of the test. 
+- ``fit_survival_function.py``. Report on the histogram of simulated null logloss (log-perplexities) and the dependency of the logloss in the sentence's length. 
+- ``HC_survival_function.py``. Computes the survival function of Higher Criticism of uniformly distributed P-values for several number of P-values. The computation is based
+on stored simualted values. If stored values are not found in the specified location, the 
+script simulate the values from scratch and store the results. 
 
 ## Example
 ``
-
-    from test_text_detect import get_pval_func_dict
+    from text_detect import get_survival_function
     from transformers import AutoTokenizer, AutoModelForCausalLM    
+    from src.PerplexityEvaluator import PerplexityEvaluator
+    from src.DetectLM import DetectLM
+    from src.PrepareSentenceContext import PrepareSentenceContext
+    import pandas as pd
+
+    INPUT_FILE = 'example_text.txt'
+    NULL_DATA_FILE = "results/gpt2_no_context_wiki_machine.csv"
 
     # Reading null data and fit p-value function for every sentence length
-    pval_functions = get_pval_func_dict(...)
+    pval_function = get_survival_function(pd.read_csv(NULL_DATA_FILE), G=45)
 
     # Initialize PerplexityEvaluator with a language model and a tokenizer
     lm_name = "gpt2"
     tokenizer = AutoTokenizer.from_pretrained(lm_name)
-    
+
     sentence_detector = PerplexityEvaluator(AutoModelForCausalLM.from_pretrained(lm_name),
                         AutoTokenizer.from_pretrained(lm_name))
-    
+
     # initialize the detector...
-    max_len = np.max(list(pval_functions.keys()))
-    detector = DetectLM(sentence_detector, pval_functions, context_policy=None,
-                        max_len=max_len, length_limit_policy='truncate')
-    
+    detector = DetectLM(sentence_detector, pval_function,
+                        min_len=8, max_len=50, length_limit_policy='truncate')
+
     # parse text from an input file 
     with open(INPUT_FILE, 'rt') as f:
         text = f.read()
-    parse_chunks = PrepareSentenceContext(context_policy='previous_sentence')
+    parse_chunks = PrepareSentenceContext(context_policy=None)
     chunks = parse_chunks(text)
-    
+
     # Test document
     res = detector(chunks['text'], chunks['context'])
-
+    print(res)
 ``
 

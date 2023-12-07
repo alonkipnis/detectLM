@@ -4,6 +4,9 @@ from multitest import MultiTest
 import pandas as pd
 import logging
 
+import sys
+sys.path.append('../')
+
 from src.DetectLM import DetectLM
 from src.fit_survival_function import fit_per_length_survival_function
 from src.HC_survival_function import get_HC_survival_function

@@ -6,8 +6,11 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import logging
 import argparse
+import sys
+ 
+# setting path
+sys.path.append('../')
 from src.PerplexityEvaluator import PerplexityEvaluator
-
 
 logging.basicConfig(level=logging.INFO)
 

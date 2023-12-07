@@ -1,0 +1,7 @@
+Example text.
+The text below explains the default configuration. 
+Some of the configurations can be easily adjusted based on the parameters in 'conf.yml'.
+The most important parameter is the path to the null data of log-loss values of sentences written by the generative language model we are testing against. 
+The default sentence parser is spacy. This parser somtimes has unexpected behavior, so try to finish every sentences with a dot. 
+There is also an instruction to ignore sentences of less than a prescribed number of tokens.
+Additionally, sentences that are too long are truncated to max-tokens-per-sentence.

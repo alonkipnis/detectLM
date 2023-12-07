@@ -15,19 +15,22 @@ class DetectLM(object):
                  length_limit_policy='truncate', ignore_first_sentence=False):
         """
         Test for the presence of sentences of irregular origin as reflected by the
-        sentence_detection_function. This function can be assisted by a context, which we
-        determine using the context_policy argument.
+        sentence_detection_function. The test is based on the sentence detection function
+        and the P-values obtained from the survival function of the detector's responses.
 
-        :param sentence_detection_function:  a function returning the log-perplexity of the text
-        based on a candidate language model
-        :param survival_function_per_length:  survival_function_per_length(l, x) is the probability of the language
-        model to produce a sentence of log-perplexity as extreme as x or more, for an input sentence s
-        of length l or a for an input pair (s, c) with sentence s of length l under context c.
-        :param length_limit_policy: what should we do if a sentence is too long. Options are:
-            'truncate':  truncate sentence to the maximal length :max_len
-             'ignore':  do not evaluate the response and P-value for this sentence
-             'max_available':  use the log-perplexity function of the maximal available length
-        :param ignore_first_sentence:  whether to ignore the first sentence in the document or not. Useful when assuming
+        Args:
+        ----
+            :sentence_detection_function:  a function returning the response of the text 
+            under the detector. Typically, the response is a logloss value under some language model.
+            :survival_function_per_length:  survival_function_per_length(l, x) is the probability of the language
+            model to produce a sentence value as extreme as x or more when the sentence s is the input to
+            the detector. The function is defined for every sentence length l.
+            The detector can also recieve a context c, in which case the input is the pair (s, c).
+            :length_limit_policy: When a sentence exceeds ``max_len``, we can:
+                'truncate':  truncate sentence to the maximal length :max_len
+                'ignore':  do not evaluate the response and P-value for this sentence
+                'max_available':  use the logloss function of the maximal available length
+            :ignore_first_sentence:  whether to ignore the first sentence in the document or not. Useful when assuming
         context of the form previous sentence.
         """
 
@@ -51,11 +54,11 @@ class DetectLM(object):
     def _test_response(self, response: float, length: int):
         """
         Args:
-            response:  sentence log-perplexity
+            response:  sentence logloss
             length:    sentence length in tokens
 
         Returns:
-          pvals:    P-value of the log-perplexity of the sentence
+          pvals:    P-value of the logloss of the sentence
           comments: comment on the P-value
         """
         if self.min_len <= length:
@@ -68,7 +71,7 @@ class DetectLM(object):
                     comment = "ignored (above maximum limit)"
                     return np.nan, np.nan, comment
                 elif self.length_limit_policy == 'max_available':
-                    comment = "exceeding length limit; resorted to max-available length"
+                    comment = "exceeding length limit; resorting to max-available length"
                     length = self.max_len
             pval = self.survival_function_per_length(length, response)
             assert pval >= 0, "Negative P-value. Something is wrong."
@@ -120,7 +123,7 @@ class DetectLM(object):
 
     def get_pvals(self, sentences: list, contexts: list) -> tuple:
         """
-        Log-perplexity test of every (sentence, context) pair
+        logloss test of every (sentence, context) pair
         """
         assert len(sentences) == len(contexts)
 

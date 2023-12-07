@@ -157,8 +157,8 @@ def main():
             df_null0 = read_all_csv_files(null_data_file)
             logging.info(f"Removing null entries associated with {input_file}...")
             logging.info(f"Reading null data from {null_data_file}...")
-            df_null0.loc[:, 'title'] = df_null0['name'].str.extract(r"([A-Za-z \(\)]+)(?:mix| mix)?.txt")
-            curr_name = re.findall(r"([A-Za-z \(\)]+)(?:mix| mix|_edited)?.txt", input_file)[0]
+            df_null0.loc[:, 'title'] = df_null0['name'].str.extract(r"([A-Za-z \(\)]+)(?:mix| mix| edited.+|_edited.+|)?.txt")
+            curr_name = re.findall(r"([A-Za-z \(\)]+)(?:mix| mix| edited.+|_edited.+|)?.txt", input_file)[0]
             df_null = df_null0[df_null0['title'] != curr_name]
             logging.info(f"Removed {len(df_null0) - len(df_null)} entries from null data")
             if params['ignore-first-sentence']:
