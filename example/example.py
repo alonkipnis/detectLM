@@ -40,9 +40,15 @@ chunks = parse_chunks(text)
 
 # Test document
 res = detector(chunks['text'], chunks['context'])
-print(res)
+print(res['sentences'])
+
+with open('HC_pval_function.pkl', "rb") as f:
+    HC_survival_function = pickle.load(f)
+
+num_valid_sentences = res['sentences']['pvalue'].dropna().shape[0]
+print(f"HC P-value = {HC_survival_function(num_valid_sentences, res['HC'])[0][0]}")
 
 """
-
 'HC': 1.3396600337668725, 'fisher': 20.49921190930749, 'fisher_pvalue': 0.02486927492187124}
+HC P-value = 0.1065159
 """
