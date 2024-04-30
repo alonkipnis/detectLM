@@ -2,8 +2,8 @@
 #language-model-name: "gpt2"
 #language-model-name: "EleutherAI/gpt-neo-1.3B"
 #language-model-name: "llama-13b"
-language-model-name: "gpt2-xl"
-ignore-first-sentence: true
+language-model-name: "microsoft/phi-2"
+ignore-first-sentence: false
 
 number-of-interpolation-points: 43
 min-tokens-per-sentence: 10
@@ -17,10 +17,12 @@ context-null-data-file: "results/gpt2_previous_sentence_wiki_machine.csv"
 #no-context-null-data-file: "results/gpt2-xl_no_context_wikibio_machine.csv"
 #no-context-null-data-file: "results/gpt2-xl_no_context_files_machine.csv"
 #no-context-null-data-file: "results/gpt2-xl_no_context_files_machine_1.csv"
-no-context-null-data-file: "results/gpt2-xl_no_context_files_machine_truncated.csv"
+#no-context-null-data-file: "results/gpt2-xl_no_context_files_machine_truncated.csv"
 #no-context-null-data-file: "results/gpt2-xl_no_context_wiki-long_machine.csv"
 #no-context-null-data-file: "results/gpt2-xl_no_context_abstracts_machine.csv"
 #no-context-null-data-file: "results/gpt2-xl_no_context_news_machine.csv"
+
+no-context-null-data-file: "results/phi-2_no_context_files_machine.csv"
 
 #no-context-null-data-file: "results/gpt2_no_context_news_machine.csv"
 #no-context-null-data-file: "results/gpt2_no_context_wiki-long_machine.csv"

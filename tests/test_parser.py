@@ -4,6 +4,7 @@ import numpy as np
 import argparse
 import sys
 sys.path.append('../')
+sys.path.append('./')
 from src.PrepareSentenceContext import PrepareSentenceContext
 import pathlib
 import yaml

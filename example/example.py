@@ -42,7 +42,7 @@ chunks = parse_chunks(text)
 res = detector(chunks['text'], chunks['context'])
 print(res['sentences'])
 
-with open('HC_pval_function.pkl', "rb") as f:
+with open('HC_survival_function.pkl', "rb") as f:
     HC_survival_function = pickle.load(f)
 
 num_valid_sentences = res['sentences']['pvalue'].dropna().shape[0]

@@ -51,6 +51,8 @@ class PrepareSentenceContext(object):
             contexts.append(context)
 
         curr_tag = None
+
+        text = re.sub("(</?[a-zA-Z0-9 ]+>\.?)\s+", r"\1.\n", text)  # to make sure that tags are in separate sentences
         parsed = self.nlp(text)
         for s in parsed.sents:
             prev_tag = curr_tag
@@ -79,7 +81,13 @@ class PrepareSentenceContext(object):
                         update_sent(matches_between[0], None, len(s)-2)
             elif len(matches_open) > 0:
                 curr_tag = "<edit>"
-                assert prev_tag is None, f"Found an opening tag without a closing tag in sentence num. {len(texts)}"
+                try:
+                    assert prev_tag is None, f"Found an opening tag without a closing tag in sentence num. {len(texts)}"
+                except AssertionError:
+                    print(f"Found an opening tag without a closing tag in:")
+                    print(s.text)
+                    print(f"Previous sentence: {texts[-1]}")
+                    import pdb; pdb.set_trace()
                 if len(matches_open[0]) >= MIN_TOKEN_LEN:
                     # text and tag are in the same sentence
                     sent_text = matches_open[0]
@@ -107,7 +115,8 @@ class PrepareSentenceContext(object):
         previous = None
 
         text = re.sub("(</?[a-zA-Z0-9 ]+>\.?)\s+", r"\1.\n", text)  # to make sure that tags are in separate sentences
-        #text = re.sub("(</[a-zA-Z0-9 ]+>\.?)\s+", r"\n\1.\n", text)  # to make sure that tags are in separate sentences
+        # Othwerwise, spacy parser may not recognize them as separate sentences
+        # It is not a perfect solution, but it is better than nothing
 
         parsed = self.nlp(text)
 
