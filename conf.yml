@@ -3,7 +3,7 @@
 #language-model-name: "EleutherAI/gpt-neo-1.3B"
 #language-model-name: "llama-13b"
 language-model-name: "microsoft/phi-2"
-ignore-first-sentence: false
+ignore-first-sentence: true
 
 number-of-interpolation-points: 43
 min-tokens-per-sentence: 10

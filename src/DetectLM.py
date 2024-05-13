@@ -116,7 +116,7 @@ class DetectLM(object):
             try:
                 responses.append(self._test_sentence(sent, ctx))
             except:
-                # something unusual happened...
+                # something unusual has happened...
                 import pdb; pdb.set_trace()
             lengths.append(length)
         return responses, lengths
@@ -129,20 +129,31 @@ class DetectLM(object):
 
         responses, lengths = self._get_responses(sentences, contexts)
         pvals, comments = self._get_pvals(responses, lengths)
-        
         return pvals, responses, comments
 
-
     def testHC(self, sentences: list) -> float:
+        """
+        Higher Criticism test
+        """
         pvals = np.array(self.get_pvals(sentences)[1])
         mt = MultiTest(pvals, stbl=self.HC_stbl)
         return mt.hc(gamma=0.4)[0]
 
     def testFisher(self, sentences: list) -> dict:
+        """
+        Fisher's combination test
+        """
         pvals = np.array(self.get_pvals(sentences)[1])
         print(pvals)
         mt = MultiTest(pvals, stbl=self.HC_stbl)
         return dict(zip(['Fn', 'pvalue'], mt.fisher()))
+
+    def testMinP(self, sentences: list) -> float:
+        """
+        Bonferroni's test
+        """
+        pvals = np.array(self.get_pvals(sentences)[1])
+        return np.min(pvals) * len(pvals)
 
     def _test_chunked_doc(self, lo_chunks: list, lo_contexts: list) -> tuple:
         pvals, responses, comments = self.get_pvals(lo_chunks, lo_contexts)
@@ -172,7 +183,39 @@ class DetectLM(object):
             df['mask'] = df['pvalue'] <= hct
         if dashboard:
             mt.hc_dashboard(gamma=0.4)
-        return dict(sentences=df, HC=hc, fisher=fisher[0], fisher_pvalue=fisher[1])
+        return dict(sentences=df, HC=hc, fisher=fisher[0], fisher_pvalue=fisher[1], minP=mt.minp, bonf=mt.bonfferoni())
+    
+    def from_responses(self, responses: list, lengths: list, dashboard=False) -> dict:
+        """
+        Compute P-values from responses and lengths
+        """
 
+        pvals, comments = self._get_pvals(responses, lengths)
+        if self.ignore_first_sentence:
+            pvals[0] = np.nan
+            logging.info('Ignoring the first sentence.')
+            comments[0] = "ignored (first sentence)"
+        
+        df = pd.DataFrame({'response': responses, 'pvalue': pvals, 'comment': comments},
+                          index=range(len(responses)))
+        df_test = df[~df.pvalue.isna()]
+        if df_test.empty:
+            logging.warning('No valid chunks to test.')
+            return None, df
+        mt = MultiTest(df_test.pvalue, stbl=self.HC_stbl)
+        
+        if mt is None:
+            hc = np.nan
+            fisher = (np.nan, np.nan)
+            df['mask'] = pd.NA
+        else:
+            hc, hct = mt.hc(gamma=0.4)
+            fisher = mt.fisher()
+            bonferroni = mt.bonfferoni()
+            df['mask'] = df['pvalue'] <= hct
+        if dashboard:
+            mt.hc_dashboard(gamma=0.4)
+        return dict(sentences=df, HC=hc, fisher=fisher[0], fisher_pvalue=fisher[1], bonf=bonferroni)
+    
     def __call__(self, lo_chunks: list, lo_contexts: list, dashboard=False) -> dict:
         return self.test_chunked_doc(lo_chunks, lo_contexts, dashboard=dashboard)

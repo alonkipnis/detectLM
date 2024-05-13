@@ -16,6 +16,7 @@ import pathlib
 import yaml
 from pathlib import Path
 import re
+import os
 
 
 logging.basicConfig(level=logging.INFO)
@@ -68,9 +69,9 @@ def mark_edits_remove_tags(chunks, tag="edit"):
 def main():
     parser = argparse.ArgumentParser(description="Apply detector of non-GLM text to a text file or several text files (based on an input pattern)")
     parser.add_argument('-i', type=str, help='input regex', default="Data/ChatGPT/*.txt")
-    parser.add_argument('-o', type=str, help='output folder', default="results/")
+    parser.add_argument('-o', type=str, help='where to store per-document information', default="results/") 
     parser.add_argument('-result-file', type=str, help='where to write results', default="out.csv")
-    
+
     parser.add_argument('-conf', type=str, help='configurations file', default="conf.yml")
     parser.add_argument('--context', action='store_true')
     parser.add_argument('--dashboard', action='store_true')
@@ -104,39 +105,52 @@ def main():
     max_tokens_per_sentence = params['max-tokens-per-sentence']
     min_tokens_per_sentence = params['min-tokens-per-sentence']
 
-    logging.info(f"Loading Language model {lm_name}...")
-    tokenizer = AutoTokenizer.from_pretrained(lm_name)
-    model = AutoModelForCausalLM.from_pretrained(lm_name)
-    logging.info(f"Loading LPPT evaluator...")
-    sentence_detector = PerplexityEvaluator(model, tokenizer)
 
+    def init_detector(lm_name):
+        if lm_name == 'noModel':
+            logging.info(f"Loading DetectLM without a language model...")
+            return DetectLM(None, pval_functions,
+                            min_len=min_tokens_per_sentence,
+                            max_len=max_tokens_per_sentence,
+                            length_limit_policy='truncate',
+                            HC_type=params['hc-type'],
+                            ignore_first_sentence=params['ignore-first-sentence']
+                            )
 
-    if torch.backends.mps.is_available():
-        device = 'mps'
-    elif torch.cuda.is_available():
-        device = 'cuda'
-    else:
-        device = 'cpu'
-    model.to(device)
+        logging.info(f"Loading Language model {lm_name}...")
+        tokenizer = AutoTokenizer.from_pretrained(lm_name)
+        model = AutoModelForCausalLM.from_pretrained(lm_name)
+        
+        if torch.backends.mps.is_available():
+            device = 'mps'
+            print("Using mps")
+        elif torch.cuda.is_available():
+            device = 'cuda'
+            print("Using cuda")
+        else:
+            device = 'cpu'
+            print("Using cuda")
+        model.to(device)
+
+        logging.info(f"Loading LPPT evaluator...")
+        sentence_detector = PerplexityEvaluator(model, tokenizer)
+
+        logging.debug("Initializing detector...")
+        return DetectLM(sentence_detector, pval_functions,
+                            min_len=min_tokens_per_sentence,
+                            max_len=max_tokens_per_sentence,
+                            length_limit_policy='truncate',
+                            HC_type=params['hc-type'],
+                            ignore_first_sentence=params['ignore-first-sentence']
+                            )
+
 
     if args.context:
         context_policy = 'previous_sentence'
     else:
         context_policy = None
 
-    
-    if not args.leave_out:
         
-        logging.debug("Initializing detector...")
-        detector = DetectLM(sentence_detector, pval_functions,
-                            min_len=min_tokens_per_sentence,
-                            max_len=max_tokens_per_sentence,
-                            length_limit_policy='truncate',
-                            HC_type=params['hc-type'],
-                            ignore_first_sentence=
-                            True if context_policy == 'previous_sentence' else False
-                            )
-
     HC_pval_func = get_HC_survival_function(HC_null_sim_file="HC_null_sim_results.csv")
     pattern = args.i
     output_folder = args.o
@@ -146,19 +160,24 @@ def main():
     parser = PrepareSentenceContext(sentence_parser=params['parser'],
                                      context_policy=context_policy)
 
-
+    detector = None
     lo_fns = glob(pattern)
-    print("Iterating over the lits of files: ", lo_fns)
+    print("Iterating over the files: ", lo_fns)
     for input_file in lo_fns:
         logging.info(f"Parsing document {input_file}...")
 
         if args.leave_out:
+            # Creating null reponse after removing responses assocaited with the current file
             logging.info(f"Reading null data from {null_data_file}...")
             df_null0 = read_all_csv_files(null_data_file)
             logging.info(f"Removing null entries associated with {input_file}...")
-            logging.info(f"Reading null data from {null_data_file}...")
             df_null0.loc[:, 'title'] = df_null0['name'].str.extract(r"([A-Za-z \(\)]+)(?:mix| mix| edited.+|_edited.+|)?.txt")
-            curr_name = re.findall(r"([A-Za-z \(\)]+)(?:mix| mix| edited.+|_edited.+|)?.txt", input_file)[0]
+            name = os.path.basename(input_file)
+            search_name = re.findall(r"([A-Za-z ]+)(?:mix| mix| edited.+|_edited.+|)?(?:.txt|.csv)?", name)
+            if len(search_name) > 0:
+                curr_name = search_name[0]
+            else:
+                logging.error(f"Could not extract name from {input_file}")
             df_null = df_null0[df_null0['title'] != curr_name]
             logging.info(f"Removed {len(df_null0) - len(df_null)} entries from null data")
             if params['ignore-first-sentence']:
@@ -166,40 +185,44 @@ def main():
             logging.info(f"Fitting LPPT P-value function...")
             pval_functions = get_survival_function(df_null, G=params['number-of-interpolation-points'])
 
-            logging.debug("Initializing detector...")
-            detector = DetectLM(sentence_detector, pval_functions,
-                            min_len=min_tokens_per_sentence,
-                            max_len=max_tokens_per_sentence,
-                            length_limit_policy='truncate',
-                            HC_type=params['hc-type'],
-                            ignore_first_sentence=
-                            True if context_policy == 'previous_sentence' else False
-                            )
-
-
+        logging.basicConfig(level=logging.DEBUG)
+        logging.debug("Parsing document...")
+        
         if pathlib.Path(input_file).suffix == '.txt':
             with open(input_file, 'rt') as f:
                 text = f.read()
+            
+            chunks = parser(text)
+            logging.info("Testing parsed document")
+
+            if detector is None:
+                logging.debug("Initializing detector...")
+                detector = init_detector(lm_name)
+    
+            res = detector(chunks['text'], chunks['context'], dashboard=args.dashboard)
+            logging.basicConfig(level=logging.INFO)
+
+            df = res['sentences']
+            df['tag'] = chunks['tag']
+            df.loc[df.tag.isna(), 'tag'] = 'no edits'
+            df['filename'] = input_file
+
+            name = Path(input_file).stem
+            output_file = f"{output_folder}{name}_sentences.csv"
+            print("Saving sentences to ", output_file)
+            df.to_csv(output_file)
+
+        elif pathlib.Path(input_file).suffix == '.csv':
+            df = pd.read_csv(input_file)
+            df.loc[:, 'length'] = df['sentence'].apply(lambda x: len(x.split()))  # approximate length
+
+            if detector is None:
+                detector = init_detector("noModel")
+
+            res = detector.from_responses(df['response'], df['length'])
         else:
             logging.error("Unknown file extension")
             exit(1)
-
-        logging.basicConfig(level=logging.DEBUG)
-        logging.debug("Parsing document...")
-        chunks = parser(text)
-        logging.info("Testing parsed document")
-        res = detector(chunks['text'], chunks['context'], dashboard=args.dashboard)
-        logging.basicConfig(level=logging.INFO)
-
-        df = res['sentences']
-        df['tag'] = chunks['tag']
-        df.loc[df.tag.isna(), 'tag'] = 'no edits'
-
-        name = Path(input_file).stem
-        output_file = f"{output_folder}{name}_sentences.csv"
-        print("Saving sentences to ", output_file)
-        df.to_csv(output_file)
-        df['pvalue'].hist
 
         print(df.groupby('tag').response.mean())
         print(df[df['mask']])
@@ -211,6 +234,8 @@ def main():
         print(f"HC = {res['HC']}")
         HC_pvalue = HC_pval_func(len_valid, HC)[0][0]
         print(f"Pvalue (HC) = {HC_pvalue}")
+        bonf = res['bonf']
+        print(f"minP-value * num_valid = {bonf}")
         print(f"Fisher = {res['fisher']}")
         print(f"Fisher (chisquared pvalue) = {res['fisher_pvalue']}")
         dfr = df[df['mask']]
@@ -221,7 +246,7 @@ def main():
         print("F1 = ", 2 * precision*recall / (precision + recall))
 
         results[input_file] = dict(length=len_valid, edit_rate=edit_rate, HC=res['HC'],
-                                HC_pvalue=HC_pvalue, precision=precision, recall=recall)
+                                HC_pvalue=HC_pvalue, precision=precision, recall=recall, bonf=bonf, filename=input_file)
         
         #plt.title("Hisogram of P-values")
         #plt.savefig("pvalue_hist.png")
