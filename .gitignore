@@ -10,3 +10,9 @@ results/*
 Figs/*
 env/*
 env
+
+# Tableau workbooks:
+*.twb
+*.twbx
+*.tde
+

@@ -17,6 +17,7 @@ import yaml
 from pathlib import Path
 import re
 import os
+import json
 
 
 logging.basicConfig(level=logging.INFO)
@@ -69,8 +70,8 @@ def mark_edits_remove_tags(chunks, tag="edit"):
 def main():
     parser = argparse.ArgumentParser(description="Apply detector of non-GLM text to a text file or several text files (based on an input pattern)")
     parser.add_argument('-i', type=str, help='input regex', default="Data/ChatGPT/*.txt")
-    parser.add_argument('-o', type=str, help='where to store per-document information', default="results/") 
-    parser.add_argument('-result-file', type=str, help='where to write results', default="out.csv")
+    parser.add_argument('-o', type=str, help='where to store per-sentence information', default="results/evaluations.json") 
+    parser.add_argument('-report-file', type=str, help='where to write results', default="report.csv")
 
     parser.add_argument('-conf', type=str, help='configurations file', default="conf.yml")
     parser.add_argument('--context', action='store_true')
@@ -107,7 +108,7 @@ def main():
 
 
     def init_detector(lm_name):
-        if lm_name == 'noModel':
+        if lm_name == `'noModel'`:
             logging.info(f"Loading DetectLM without a language model...")
             return DetectLM(None, pval_functions,
                             min_len=min_tokens_per_sentence,
@@ -152,32 +153,41 @@ def main():
 
         
     HC_pval_func = get_HC_survival_function(HC_null_sim_file="HC_null_sim_results.csv")
+
     pattern = args.i
-    output_folder = args.o
+    
+    output_file = args.o
 
-    results = {}
+    # check if the output file exists. If yes, append a number to the name:
+    while os.path.exists(output_file):
+        output_file = output_file.replace(".json", "_1.json")
 
+
+    
     parser = PrepareSentenceContext(sentence_parser=params['parser'],
                                      context_policy=context_policy)
 
     detector = None
     lo_fns = glob(pattern)
     print("Iterating over the files: ", lo_fns)
-    for input_file in lo_fns:
-        logging.info(f"Parsing document {input_file}...")
+
+    results = {}
+    for text_file in lo_fns:
+        per_file_results = {}
+        logging.info(f"Parsing document {text_file}...")
 
         if args.leave_out:
             # Creating null reponse after removing responses assocaited with the current file
             logging.info(f"Reading null data from {null_data_file}...")
             df_null0 = read_all_csv_files(null_data_file)
-            logging.info(f"Removing null entries associated with {input_file}...")
+            logging.info(f"Removing null entries associated with {text_file}...")
             df_null0.loc[:, 'title'] = df_null0['name'].str.extract(r"([A-Za-z \(\)]+)(?:mix| mix| edited.+|_edited.+|)?.txt")
-            name = os.path.basename(input_file)
+            name = os.path.basename(text_file)
             search_name = re.findall(r"([A-Za-z ]+)(?:mix| mix| edited.+|_edited.+|)?(?:.txt|.csv)?", name)
             if len(search_name) > 0:
                 curr_name = search_name[0]
             else:
-                logging.error(f"Could not extract name from {input_file}")
+                logging.error(f"Could not extract name from {text_file}")
             df_null = df_null0[df_null0['title'] != curr_name]
             logging.info(f"Removed {len(df_null0) - len(df_null)} entries from null data")
             if params['ignore-first-sentence']:
@@ -188,8 +198,8 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
         logging.debug("Parsing document...")
         
-        if pathlib.Path(input_file).suffix == '.txt':
-            with open(input_file, 'rt') as f:
+        if pathlib.Path(text_file).suffix == '.txt':
+            with open(text_file, 'rt') as f:
                 text = f.read()
             
             chunks = parser(text)
@@ -205,15 +215,17 @@ def main():
             df = res['sentences']
             df['tag'] = chunks['tag']
             df.loc[df.tag.isna(), 'tag'] = 'no edits'
-            df['filename'] = input_file
+            #df['filename'] = text_file
 
-            name = Path(input_file).stem
-            output_file = f"{output_folder}{name}_sentences.csv"
-            print("Saving sentences to ", output_file)
-            df.to_csv(output_file)
+            name = Path(text_file).stem
 
-        elif pathlib.Path(input_file).suffix == '.csv':
-            df = pd.read_csv(input_file)
+            #output_folder = "results/" # Path(output_file).parent
+            #output_file = f"{output_folder}{name}_sentences.csv"
+            #print("Saving per-sentence data to ", output_file)
+            #df.to_csv(output_file)
+
+        elif pathlib.Path(text_file).suffix == '.csv':
+            df = pd.read_csv(text_file)
             df.loc[:, 'length'] = df['sentence'].apply(lambda x: len(x.split()))  # approximate length
 
             if detector is None:
@@ -235,7 +247,8 @@ def main():
         HC_pvalue = HC_pval_func(len_valid, HC)[0][0]
         print(f"Pvalue (HC) = {HC_pvalue}")
         bonf = res['bonf']
-        print(f"minP-value * num_valid = {bonf}")
+
+        print(f"Bonferroni's P-value = {bonf}")
         print(f"Fisher = {res['fisher']}")
         print(f"Fisher (chisquared pvalue) = {res['fisher_pvalue']}")
         dfr = df[df['mask']]
@@ -245,18 +258,28 @@ def main():
         print("recall = ", recall)
         print("F1 = ", 2 * precision*recall / (precision + recall))
 
-        results[input_file] = dict(length=len_valid, edit_rate=edit_rate, HC=res['HC'],
-                                HC_pvalue=HC_pvalue, precision=precision, recall=recall, bonf=bonf, filename=input_file)
-        
+        per_file_results['metrics'] = dict(length=len_valid, edit_rate=edit_rate, HC=res['HC'], 
+                                HC_pvalue=HC_pvalue, precision=precision, recall=recall, bonf=bonf, filename=text_file)
+        per_file_results['null-data'] = dict(filename = null_data_file, length=len(df_null))
+        per_file_results['model'] = lm_name
+        per_file_results['sentences'] = df.to_dict(orient='records')
+        # store dictionary per_file_results to json file output_file:
+        with open(output_file, 'a') as f:
+            f.write(',\n')
+            f.write(json.dumps({text_file: per_file_results}, indent=4))
+        logging.info(f"Saved results to {output_file}")
+
         #plt.title("Hisogram of P-values")
         #plt.savefig("pvalue_hist.png")
         #plt.show()
+        results[text_file] = per_file_results['metrics']
 
-    results_filename = args.result_file
+
+    report_filename = args.report_file
     print(results)
-    print(f"Saving results to {results_filename}")
+    print(f"Saving report to {report_filename}")
     dfr = pd.DataFrame.from_dict(results).T
-    dfr.to_csv(results_filename)
+    dfr.to_csv(report_filename)
 
 
 if __name__ == '__main__':

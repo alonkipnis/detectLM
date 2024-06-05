@@ -16,6 +16,7 @@ import logging
 
 HC_NULL_SIM_FILE = "HC_null_sim_results.csv"
 STBL = True
+GAMMA = 0.2
 NN = [25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500]  # values of n to simulate
 
 def get_HC_survival_function(HC_null_sim_file, log_space=True, nMonte=10000, STBL=True):
@@ -29,7 +30,7 @@ def get_HC_survival_function(HC_null_sim_file, log_space=True, nMonte=10000, STB
                 for j in range(nMonte):
                     uu = np.random.rand(n)
                     mt = MultiTest(uu, stbl=STBL)
-                    yy[j] = mt.hc()[0]
+                    yy[j] = mt.hc(gamma=GAMMA)[0]
                 xx[n] = yy
     else:
         logging.info(f"Loading HC null values from {HC_null_sim_file}...")

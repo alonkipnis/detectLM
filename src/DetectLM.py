@@ -3,6 +3,7 @@ import pandas as pd
 from multitest import MultiTest
 from tqdm import tqdm
 import logging
+GAMMA = 0.2
 
 
 def truncae_to_max_no_tokens(text, max_no_tokens):
@@ -11,7 +12,7 @@ def truncae_to_max_no_tokens(text, max_no_tokens):
 
 class DetectLM(object):
     def __init__(self, sentence_detection_function, survival_function_per_length,
-                 min_len=4, max_len=100, HC_type="stbl",
+                 min_len=1, max_len=100, HC_type="stbl",
                  length_limit_policy='truncate', ignore_first_sentence=False):
         """
         Test for the presence of sentences of irregular origin as reflected by the
@@ -87,6 +88,9 @@ class DetectLM(object):
                         comment=comment)
 
     def _get_pvals(self, responses: list, lengths: list) -> tuple:
+        """
+        Pvalues from responses and lengths
+        """
         pvals = []
         comments = []
         for response, length in zip(responses, lengths):
@@ -98,7 +102,7 @@ class DetectLM(object):
 
     def _get_responses(self, sentences: list, contexts: list) -> list:
         """
-        Compute response and length of a text sentence 
+        Compute response and length of a every sentence in a list
         """
         assert len(sentences) == len(contexts)
 
@@ -131,31 +135,31 @@ class DetectLM(object):
         pvals, comments = self._get_pvals(responses, lengths)
         return pvals, responses, comments
 
-    def testHC(self, sentences: list) -> float:
-        """
-        Higher Criticism test
-        """
-        pvals = np.array(self.get_pvals(sentences)[1])
-        mt = MultiTest(pvals, stbl=self.HC_stbl)
-        return mt.hc(gamma=0.4)[0]
+    # def testHC(self, sentences: list) -> float:
+    #     """
+    #     Higher Criticism test
+    #     """
+    #     pvals = np.array(self.get_pvals(sentences)[1])
+    #     mt = MultiTest(pvals, stbl=self.HC_stbl)
+    #     return mt.hc(gamma=0.4)[0]
 
-    def testFisher(self, sentences: list) -> dict:
-        """
-        Fisher's combination test
-        """
-        pvals = np.array(self.get_pvals(sentences)[1])
-        print(pvals)
-        mt = MultiTest(pvals, stbl=self.HC_stbl)
-        return dict(zip(['Fn', 'pvalue'], mt.fisher()))
+    # def testFisher(self, sentences: list) -> dict:
+    #     """
+    #     Fisher's combination test
+    #     """
+    #     pvals = np.array(self.get_pvals(sentences)[1])
+    #     print(pvals)
+    #     mt = MultiTest(pvals, stbl=self.HC_stbl)
+    #     return dict(zip(['Fn', 'pvalue'], mt.fisher()))
 
-    def testMinP(self, sentences: list) -> float:
-        """
-        Bonferroni's test
-        """
-        pvals = np.array(self.get_pvals(sentences)[1])
-        return np.min(pvals) * len(pvals)
+    # def testMinP(self, sentences: list) -> float:
+    #     """
+    #     Bonferroni's test
+    #     """
+    #     pvals = np.array(self.get_pvals(sentences)[1])
+    #     return np.min(pvals) * len(pvals)
 
-    def _test_chunked_doc(self, lo_chunks: list, lo_contexts: list) -> tuple:
+    def _test_chunked_doc(self, lo_chunks: list, lo_contexts: list) -> (MultiTest, pd.DataFrame):
         pvals, responses, comments = self.get_pvals(lo_chunks, lo_contexts)
         if self.ignore_first_sentence:
             pvals[0] = np.nan
@@ -178,11 +182,11 @@ class DetectLM(object):
             fisher = (np.nan, np.nan)
             df['mask'] = pd.NA
         else:
-            hc, hct = mt.hc(gamma=0.4)
+            hc, hct = mt.hc(gamma=GAMMA)
             fisher = mt.fisher()
             df['mask'] = df['pvalue'] <= hct
         if dashboard:
-            mt.hc_dashboard(gamma=0.4)
+            mt.hc_dashboard(gamma=GAMMA)
         return dict(sentences=df, HC=hc, fisher=fisher[0], fisher_pvalue=fisher[1], minP=mt.minp, bonf=mt.bonfferoni())
     
     def from_responses(self, responses: list, lengths: list, dashboard=False) -> dict:
@@ -209,12 +213,12 @@ class DetectLM(object):
             fisher = (np.nan, np.nan)
             df['mask'] = pd.NA
         else:
-            hc, hct = mt.hc(gamma=0.4)
+            hc, hct = mt.hc(gamma=GAMMA)
             fisher = mt.fisher()
             bonferroni = mt.bonfferoni()
             df['mask'] = df['pvalue'] <= hct
         if dashboard:
-            mt.hc_dashboard(gamma=0.4)
+            mt.hc_dashboard(gamma=GAMMA)
         return dict(sentences=df, HC=hc, fisher=fisher[0], fisher_pvalue=fisher[1], bonf=bonferroni)
     
     def __call__(self, lo_chunks: list, lo_contexts: list, dashboard=False) -> dict:
