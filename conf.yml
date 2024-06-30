@@ -2,15 +2,16 @@
 #language-model-name: "EleutherAI/gpt-neo-1.3B"
 #language-model-name: "llama-13b"
 
-#language-model-name: "gpt2-xl"
-language-model-name: "microsoft/phi-2"
+language-model-name: "gpt2-xl"
+#language-model-name: "microsoft/phi-2"
 ignore-first-sentence: true
 
-number-of-interpolation-points: 43
+number-of-interpolation-points: 47
 min-tokens-per-sentence: 10
 max-tokens-per-sentence: 50
 hc-type: "stbl"
 parser: "spacy"
+gamma: 0.45
 
 #context-null-data-file: "results/gpt2_previous_sentence_wiki_machine.csv"
 #context-null-data-file: "results/gpt2_previous_sentence_files_machine.csv"
@@ -28,6 +29,6 @@ parser: "spacy"
 #no-context-null-data-file: "results/gpt2_no_context_wiki_machine.csv"
 
 #no-context-null-data-file: "results/gpt2-xl_no_context_files_machine_truncated.csv"
-#no-context-null-data-file: "results/gpt2-xl_no_context_files_machine.csv"
-no-context-null-data-file: "results/phi-2_no_context_files_machine.csv"
+no-context-null-data-file: "results/gpt2-xl_no_context_files_machine.csv"
+#no-context-null-data-file: "results/phi-2_no_context_files_machine.csv"
 

@@ -6,6 +6,8 @@ from scipy.interpolate import RectBivariateSpline, interp1d
 import numpy as np
 
 
+POW = 1
+
 def fit_survival_func(xx, log_space=True):
     """
     Returns an estimated survival function to the data in :xx: using
@@ -20,7 +22,8 @@ def fit_survival_func(xx, log_space=True):
     """
     assert len(xx) > 0
 
-    eps = 1 / len(xx)
+    eps = 1 / (len(xx) + 1) # This will determine the lowest value of P-values. 
+                            # This may limit Bonferroni's correction to a maximum of 1/(len(xx) + 1)
     inf = 1 / eps
 
     sxx = np.sort(xx)

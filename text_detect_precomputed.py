@@ -1,8 +1,5 @@
 # Evalaute results using pre-computed logloss per sentence
-# HERE!!! Complete this part and run it
 
-
-import torch
 import pandas as pd
 import logging
 import numpy as np
@@ -10,7 +7,6 @@ import argparse
 from src.DetectLM import DetectLM
 from src.fit_survival_function import fit_per_length_survival_function
 from src.HC_survival_function import get_HC_survival_function
-import pathlib
 import yaml
 import re
 import os
@@ -124,6 +120,7 @@ def main():
                             max_len=max_tokens_per_sentence,
                             length_limit_policy='truncate',
                             HC_type=params['hc-type'],
+                            gamma=params['gamma'],
                             ignore_first_sentence=params['ignore-first-sentence']
                             )
         
@@ -177,6 +174,9 @@ def main():
     print(f"Saving report to {report_filename}")
     dfr = pd.DataFrame.from_dict(results).T
     dfr.to_csv(report_filename)
+
+    print("HC # of detections: ", np.sum(dfr['HC_pvalue'] < 0.05))
+    print("bonf # of detections: ", np.sum(dfr['bonf'] < 0.05))
 
 
 if __name__ == '__main__':

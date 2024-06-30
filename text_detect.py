@@ -108,13 +108,14 @@ def main():
 
 
     def init_detector(lm_name):
-        if lm_name == `'noModel'`:
+        if lm_name == 'noModel':
             logging.info(f"Loading DetectLM without a language model...")
             return DetectLM(None, pval_functions,
                             min_len=min_tokens_per_sentence,
                             max_len=max_tokens_per_sentence,
                             length_limit_policy='truncate',
                             HC_type=params['hc-type'],
+                            gamma=params['gamma'],
                             ignore_first_sentence=params['ignore-first-sentence']
                             )
 
@@ -142,9 +143,9 @@ def main():
                             max_len=max_tokens_per_sentence,
                             length_limit_policy='truncate',
                             HC_type=params['hc-type'],
+                            gamma=params['gamma'],
                             ignore_first_sentence=params['ignore-first-sentence']
                             )
-
 
     if args.context:
         context_policy = 'previous_sentence'
@@ -152,18 +153,16 @@ def main():
         context_policy = None
 
         
-    HC_pval_func = get_HC_survival_function(HC_null_sim_file="HC_null_sim_results.csv")
+    HC_pval_func = get_HC_survival_function(HC_null_sim_file_prefix="src/HC_null_sim_results", 
+                                            gamma=params['gamma'], stbl=params['hc-type'])
 
     pattern = args.i
-    
     output_file = args.o
 
     # check if the output file exists. If yes, append a number to the name:
     while os.path.exists(output_file):
         output_file = output_file.replace(".json", "_1.json")
 
-
-    
     parser = PrepareSentenceContext(sentence_parser=params['parser'],
                                      context_policy=context_policy)
 
@@ -215,14 +214,9 @@ def main():
             df = res['sentences']
             df['tag'] = chunks['tag']
             df.loc[df.tag.isna(), 'tag'] = 'no edits'
-            #df['filename'] = text_file
-
+            
             name = Path(text_file).stem
 
-            #output_folder = "results/" # Path(output_file).parent
-            #output_file = f"{output_folder}{name}_sentences.csv"
-            #print("Saving per-sentence data to ", output_file)
-            #df.to_csv(output_file)
 
         elif pathlib.Path(text_file).suffix == '.csv':
             df = pd.read_csv(text_file)
@@ -269,9 +263,6 @@ def main():
             f.write(json.dumps({text_file: per_file_results}, indent=4))
         logging.info(f"Saved results to {output_file}")
 
-        #plt.title("Hisogram of P-values")
-        #plt.savefig("pvalue_hist.png")
-        #plt.show()
         results[text_file] = per_file_results['metrics']
 
 
