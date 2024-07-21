@@ -19,15 +19,12 @@ import sys
 sys.path.append('../')
 from src.fit_survival_function import fit_survival_func
 
-
-HC_NULL_SIM_FILE = "HC_null_sim_results"
-STBL = True
-GAMMA = 0.45
 NN = [25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500]  # values of n to simulate
 
-def get_HC_survival_function(HC_null_sim_file_prefix=HC_NULL_SIM_FILE,
+def get_HC_survival_function(gamma, stbl,
+                             HC_null_sim_file_prefix="HC_null_sim_results",
                               log_space=True, nMonte=10000,
-                              stbl=STBL, gamma=GAMMA, nn=NN):
+                               nn=NN):
 
     # find hash of parameters:
     

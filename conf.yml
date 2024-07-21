@@ -1,6 +1,5 @@
 
 #language-model-name: "EleutherAI/gpt-neo-1.3B"
-#language-model-name: "llama-13b"
 
 language-model-name: "gpt2-xl"
 #language-model-name: "microsoft/phi-2"
@@ -9,9 +8,9 @@ ignore-first-sentence: true
 number-of-interpolation-points: 47
 min-tokens-per-sentence: 10
 max-tokens-per-sentence: 50
-hc-type: "stbl"
+hc-type: "not stbl"
 parser: "spacy"
-gamma: 0.45
+gamma: 0.2
 
 #context-null-data-file: "results/gpt2_previous_sentence_wiki_machine.csv"
 #context-null-data-file: "results/gpt2_previous_sentence_files_machine.csv"

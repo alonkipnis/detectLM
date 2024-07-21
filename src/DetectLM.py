@@ -3,7 +3,7 @@ import pandas as pd
 from multitest import MultiTest
 from tqdm import tqdm
 import logging
-GAMMA = 0.25
+GAMMA = 0.45
 
 
 def truncae_to_max_no_tokens(text, max_no_tokens):

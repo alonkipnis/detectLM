@@ -54,7 +54,8 @@ def main():
     
     report_filename = args.report_file
 
-    HC_pval_func = get_HC_survival_function(HC_null_sim_file="HC_null_sim_results.csv")
+    HC_pval_func = get_HC_survival_function(gamma=params['gamma'], stbl=params['hc-type'],
+        HC_null_sim_file_prefix="HC_null_sim_results")
 
     null_data_file = args.null
     df_null0 = pd.read_csv(null_data_file)

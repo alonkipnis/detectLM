@@ -32,7 +32,6 @@ def fit_survival_func(xx, log_space=True):
     if log_space:
         qq = -np.log(qq)
 
-
     if log_space:
         return interp1d(sxx, qq, fill_value=(0 , np.log(inf)), bounds_error=False)
     else:
