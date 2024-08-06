@@ -16,15 +16,15 @@ def main():
     parser.add_argument('-edited-results-file1', type=str, help='file with results of edited documents model 1', default="")
     parser.add_argument('-edited-results-file2', type=str, help='file with results of edited documents model 2', default="")
 
-    parser.add_argument('-null-results-file1', type=str, help='file with results of non-edited documents 1', default="") 
-    parser.add_argument('-null-results-file2', type=str, help='file with results of non-edited documents 2', default="") 
+    parser.add_argument('-unedited-results-file1', type=str, help='file with results of non-edited documents 1', default="") 
+    parser.add_argument('-unedited-results-file2', type=str, help='file with results of non-edited documents 2', default="") 
     
 
     args = parser.parse_args()
 
     if args.edited_results_file1 != "" and args.edited_results_file2 != "":
-        df_disp1 = arrange_results(args.edited_results_file1, args.null_results_file1)
-        df_disp2 = arrange_results(args.edited_results_file2, args.null_results_file2)
+        df_disp1 = arrange_results(args.edited_results_file1, args.unedited_results_file1)
+        df_disp2 = arrange_results(args.edited_results_file2, args.unedited_results_file2)
         merge_results_of_two_models(df_disp1, df_disp2, model1="gpt2", model2="phi2")
         return
     else:
@@ -57,7 +57,7 @@ def arrange_results(results_edited_filename, results_null_filename):
     df['F1'] = 2 * df['precision'] * df['recall'] / (df['precision'] + df['recall'])
     df['TPR'] = df['recall']
 
-    columns = ['title',  'edit_rate', 'length', 'HC', 'HC_pvalue', 'HC (null)',  'HC_pvalue (null)',  'bonf', 'bonf (null)', 'F1']
+    columns = ['title',  'edit_rate', 'length', 'HC', 'HC_pvalue', 'HC (null)',  'HC_pvalue (null)']#,  'bonf']#, 'bonf (null)', 'F1']
     
     return df_disp.filter(columns)
 
@@ -108,8 +108,9 @@ def merge_results_of_two_models(df_disp1, df_disp2, model1, model2):
         df_disp[f'HC ({model})'] = df_disp.apply(lambda row: arrange_and_color_blue(row[f'HC ({model})'], row[f'HC_pvalue ({model})']), axis=1)
         df_disp[f'HC (null) ({model})'] = df_disp.apply(lambda row: arrange_and_color_red(row[f'HC (null) ({model})'], row[f'HC_pvalue (null) ({model})']), axis=1)
 
-        df_disp[f'bonf ({model})'] = df_disp[f'bonf ({model})'].apply(add_color_scaler, color='blue')
-        df_disp[f'bonf (null) ({model})'] = df_disp[f'bonf (null) ({model})'].apply(add_color_scaler, color='red')
+        if f'bonf ({model})' in df_disp.columns:
+            df_disp[f'bonf ({model})'] = df_disp[f'bonf ({model})'].apply(add_color_scaler, color='blue')
+        #df_disp[f'bonf (null) ({model})'] = df_disp[f'bonf (null) ({model})'].apply(add_color_scaler, color='red')
 
     # remove the pvalues from the dataframe:
     df_disp = df_disp.drop(columns=[f'HC_pvalue ({model1})', f'HC_pvalue ({model2})', f'HC_pvalue (null) ({model1})', f'HC_pvalue (null) ({model2})'])
@@ -130,7 +131,7 @@ def arrange_and_print_one_model(df_disp):
             return f"\\color{{blue}} \\textbf{{{np.round(x,3)}}}"
         def round_and_bold_red(x):
             return f"\\color{{red}} \\textbf{{{np.round(x,3)}}}"
-
+        
         df_disp.loc[df_disp['HC_pvalue'] > 0.05, 'F1'] = "NA"
         df_disp.loc[:,'length'] = df_disp['length'].apply(lambda x: f"{int(x)}")
         df_disp.loc[:, 'title'] = df_disp['title'].apply(lambda x: f"\\texttt{{{x}}}")

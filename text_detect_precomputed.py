@@ -54,8 +54,12 @@ def main():
     
     report_filename = args.report_file
 
-    HC_pval_func = get_HC_survival_function(gamma=params['gamma'], stbl=params['hc-type'],
+    HC_pval_func = get_HC_survival_function(gamma=params['gamma'], stbl=params['HC-type'],
         HC_null_sim_file_prefix="HC_null_sim_results")
+    
+    HC_pval_func_notstbl = get_HC_survival_function(gamma=params['gamma'], stbl='not stbl',
+        HC_null_sim_file_prefix="HC_null_sim_results")
+
 
     null_data_file = args.null
     df_null0 = pd.read_csv(null_data_file)
@@ -65,7 +69,6 @@ def main():
     # read json file:
     # use a json_loader to read input_file:
 
- 
     with open(input_file, "r") as f:
         data_raw = json.load(f)
 
@@ -82,7 +85,6 @@ def main():
         for k in data_raw:
             data[list(k.keys())[0]] = list(k.values())[0]
     
-
     
     lm_name = data[list(data.keys())[0]]['model']
     
@@ -120,7 +122,16 @@ def main():
                             min_len=min_tokens_per_sentence,
                             max_len=max_tokens_per_sentence,
                             length_limit_policy='truncate',
-                            HC_type=params['hc-type'],
+                            HC_type=params['HC-type'],
+                            gamma=params['gamma'],
+                            ignore_first_sentence=params['ignore-first-sentence']
+                            )
+        
+        detector_notstbl = DetectLM(None, pval_functions,
+                            min_len=min_tokens_per_sentence,
+                            max_len=max_tokens_per_sentence,
+                            length_limit_policy='truncate',
+                            HC_type='not stbl',
                             gamma=params['gamma'],
                             ignore_first_sentence=params['ignore-first-sentence']
                             )
@@ -128,10 +139,11 @@ def main():
         # read sentence info from pre-computed data
         responses = [r['response'] for r in data[fn]['sentences'] ]
         lengths = [len(r['sentence'].split()) for r in data[fn]['sentences'] ]
-        org_sentences = [r['sentence'] for r in data[fn]['sentences'] ]
+        #org_sentences = [r['sentence'] for r in data[fn]['sentences'] ]
         org_tags = [r['tag'] for r in data[fn]['sentences'] ]
 
         res = detector.from_responses(responses, lengths)
+        res_notstbl = detector_notstbl.from_responses(responses, lengths)
 
         df = res['sentences']
         df['tag'] = org_tags
@@ -144,9 +156,12 @@ def main():
         edit_rate = np.mean(df['tag'] == '<edit>')
         print(f"Num of Edits (rate) = {np.sum(df['tag'] == '<edit>')} ({edit_rate})")
         HC = res['HC']
-        print(f"HC = {res['HC']}")
+        HC_notstbl = res_notstbl['HC']
+        
         HC_pvalue = HC_pval_func(len_valid, HC)[0][0]
-        print(f"Pvalue (HC) = {HC_pvalue}")
+        HC_pvalue_notstbl = HC_pval_func_notstbl(len_valid, HC_notstbl)[0][0]
+        print(f"HC = {HC}, Pvalue = {HC_pvalue}")
+        print(f"HC (not stbl) = {HC_notstbl}, pvalue = {HC_pvalue_notstbl}")
         bonf = res['bonf']
 
         print(f"Bonferroni's P-value = {bonf}")
@@ -159,11 +174,14 @@ def main():
         print("recall = ", recall)
         print("F1 = ", 2 * precision*recall / (precision + recall))
 
-        per_file_results['metrics'] = dict(length=len_valid, edit_rate=edit_rate, HC=res['HC'], 
-                                HC_pvalue=HC_pvalue, precision=precision, recall=recall, bonf=bonf, filename=fn)
+        per_file_results['metrics'] = dict(length=len_valid, edit_rate=edit_rate, HC=HC,
+                                        HC_notstbl=HC_notstbl, HC_pvalue=HC_pvalue,
+                                HC_pvalue_notstbl=HC_pvalue_notstbl,
+                                  precision=precision, recall=recall, bonf=bonf, filename=fn)
         per_file_results['null-data'] = dict(filename = null_data_file, length=len(df_null))
         per_file_results['model'] = lm_name
         per_file_results['sentences'] = df.to_dict(orient='records')
+        
         
         #plt.title("Hisogram of P-values")
         #plt.savefig("pvalue_hist.png")
@@ -174,9 +192,11 @@ def main():
     print(results)
     print(f"Saving report to {report_filename}")
     dfr = pd.DataFrame.from_dict(results).T
+    dfr['null_data_file'] = null_data_file
     dfr.to_csv(report_filename)
 
     print("HC # of detections: ", np.sum(dfr['HC_pvalue'] < 0.05))
+    print("HC non-stbl # of detections: ", np.sum(dfr['HC_pvalue_notstbl'] < 0.05))
     print("bonf # of detections: ", np.sum(dfr['bonf'] < 0.05))
 
 

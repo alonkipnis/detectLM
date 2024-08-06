@@ -33,13 +33,16 @@ def get_HC_survival_function(gamma, stbl,
     hash = m.hexdigest()[:10]
     HC_null_sim_file = HC_null_sim_file_prefix + '_' + hash + ".csv"
     
+    logging.info(f"HC null values file: {HC_null_sim_file}")
+
     xx = {}
     # check if file exists:
     if os.path.isfile(HC_null_sim_file):
         logging.info(f"Loading HC null values from {HC_null_sim_file}...")
         df = pd.read_csv(HC_null_sim_file, index_col=0)
-        for n in df.index:
-            xx[n] = df.loc[n]
+        for n in df.columns:
+            xx[int(n)] = df.loc[:,n].values
+            assert len(xx[int(n)]) == nMonte, f"n={n} has {len(xx[int(n)])} values."
     else:
         logging.info("Simulated HC null values file was not found.")
         for n in tqdm(NN):
@@ -59,7 +62,7 @@ def get_HC_survival_function(gamma, stbl,
     xx0 = np.linspace(-1, 8, 57)
     zz = []
     for n in nn:
-        univariate_survival_func = fit_survival_func(xx[n], log_space=log_space)
+        univariate_survival_func = fit_survival_func(xx[n], log_space=True)
         zz.append(univariate_survival_func(xx0))
         
     func_log = RectBivariateSpline(np.array(nn), xx0, np.vstack(zz))
@@ -73,11 +76,12 @@ def get_HC_survival_function(gamma, stbl,
     
 
 def main():
+    HC_NULL_SIM_FILE = "HC_null_sim_results"
+    STBL = 'stbl'
     func = get_HC_survival_function(HC_null_sim_file_prefix=HC_NULL_SIM_FILE, stbl=STBL)
     print("Pr[HC >= 3 |n=50] = ", func(50, 3)[0][0]) # 9.680113e-05
     print("Pr[HC >= 3 |n=100] = ", func(100, 3)[0][0]) # 0.0002335
     print("Pr[HC >= 3 |n=200] = ", func(200, 3)[0][0]) # 0.00103771
     
-
 if __name__ == '__main__':
     main()

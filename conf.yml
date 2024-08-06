@@ -8,9 +8,10 @@ ignore-first-sentence: true
 number-of-interpolation-points: 47
 min-tokens-per-sentence: 10
 max-tokens-per-sentence: 50
-hc-type: "not stbl"
+#HC-type: "not stbl"
+HC-type: "stbl"
 parser: "spacy"
-gamma: 0.2
+gamma: 0.45
 
 #context-null-data-file: "results/gpt2_previous_sentence_wiki_machine.csv"
 #context-null-data-file: "results/gpt2_previous_sentence_files_machine.csv"
